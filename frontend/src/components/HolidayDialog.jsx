@@ -39,7 +39,7 @@ export const HolidayDialog = ({ open, onOpenChange, holiday, date: initialDate }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-strong !rounded-[28px] max-w-md w-[calc(100vw-1.5rem)] p-6 border-0" data-testid="holiday-dialog">
+      <DialogContent className="glass !rounded-[20px] max-w-md w-[calc(100vw-1.5rem)] p-6 border-0" data-testid="holiday-dialog">
         <DialogHeader className="text-left">
           <DialogTitle className="font-display text-2xl">{holiday ? "Праздник" : "Новый особый день"}</DialogTitle>
           <DialogDescription className="txt-2">Выходной, короткий день или особая ставка</DialogDescription>

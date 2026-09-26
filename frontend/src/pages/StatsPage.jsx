@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, Clock, Timer, Flame, CalendarCheck, Coins, Wallet } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useMonthStats, useYearStats, useSettings, typeMap } from "@/hooks/useData";
-import { monthKey, shiftMonth, monthTitle, hrs, money, money2, rateColor, dateShort, MONTHS_SHORT } from "@/lib/format";
+import { monthKey, shiftMonth, monthTitle, hrs, hrsShort, money, money2, rateColor, dateShort, MONTHS_SHORT } from "@/lib/format";
 import { GlassCard, Label, Kpi, RateBadge, TypePill, Spinner } from "@/components/Glass";
 
 const tip = { background: "var(--glass-strong)", border: "1px solid var(--glass-border)", borderRadius: 14, backdropFilter: "blur(20px)", fontSize: 12 };
@@ -105,9 +105,9 @@ const MonthView = ({ month }) => {
         <GlassCard className="lg:col-span-5 p-6"><Label className="mb-4">Брутто → нетто</Label><SalaryBreakdown tax={data.tax} totals={t} /></GlassCard>
         <GlassCard className="lg:col-span-7 p-6 overflow-hidden" data-testid="stats-days-table">
           <Label className="mb-4">Журнал дней</Label>
-          <div className="max-h-[420px] overflow-y-auto -mx-2 px-2 space-y-1.5">
+          <div className="max-h-[420px] overflow-y-auto -mx-2 px-2">
             {logged.map((d) => (
-              <div key={d.date} className="flex items-center gap-3 rounded-2xl bg-soft px-3 py-2.5 text-sm">
+              <div key={d.date} className="flex items-center gap-3 py-3 border-b hair last:border-0 text-sm">
                 <div className="num w-14 shrink-0 font-semibold">{dateShort(d.date)}</div>
                 <TypePill type={types[d.calc.day_type]} className="hidden sm:inline-flex" />
                 <span className="w-2 h-2 rounded-full sm:hidden" style={{ background: types[d.calc.day_type]?.color }} />
@@ -125,6 +125,35 @@ const MonthView = ({ month }) => {
   );
 };
 
+const MonthsList = ({ rows, year }) => {
+  const list = [...rows].reverse().filter((r) => r.worked_hours || r.gross);
+  const tot = rows.reduce((a, r) => ({ h: a.h + r.worked_hours, e: a.e + r.expected_hours, g: a.g + r.gross }), { h: 0, e: 0, g: 0 });
+  const Delta = ({ d }) => <span className={d >= 0 ? "text-[#34C759]" : "text-[#FF3B30]"}>{d >= 0 ? "+" : "−"}{hrsShort(Math.abs(d))}</span>;
+  return (
+    <GlassCard className="overflow-hidden" data-testid="year-months-list">
+      <div className="px-5 pt-4 pb-2 text-[13px] font-semibold txt-2">{year}</div>
+      {list.map((r) => (
+        <div key={r.month} className="flex items-center gap-4 px-5 py-3 border-t hair" data-testid={`year-month-row-${r.month}`}>
+          <span className="w-12 text-[13px] font-semibold uppercase text-[#FF3B30]">{r.name}</span>
+          <span className="flex-1 text-[15px] txt-2">{r.worked_days} дн.</span>
+          <div className="text-right">
+            <div className="num text-[15px] font-medium">{hrs(r.worked_hours)} <Delta d={r.worked_hours - r.expected_hours} /></div>
+            <div className="num text-[13px] txt-2">{money2(r.gross)}</div>
+          </div>
+        </div>
+      ))}
+      {!list.length && <div className="px-5 py-4 border-t hair text-sm txt-2">Нет данных за год</div>}
+      <div className="flex items-center gap-4 px-5 py-3.5 border-t hair bg-soft">
+        <span className="flex-1 text-[15px] font-semibold">Итого</span>
+        <div className="text-right">
+          <div className="num text-[15px] font-semibold">{hrs(tot.h)} <Delta d={tot.h - tot.e} /></div>
+          <div className="num text-[13px] font-medium">{money2(tot.g)}</div>
+        </div>
+      </div>
+    </GlassCard>
+  );
+};
+
 const YearView = ({ year }) => {
   const { data, isLoading } = useYearStats(year);
   if (isLoading || !data) return <Spinner />;
@@ -138,6 +167,7 @@ const YearView = ({ year }) => {
         <Kpi label="Брутто за год" value={money(sum("gross"))} icon={Coins} color="#0A84FF" testId="year-kpi-gross" />
         <Kpi label="Нетто за год" value={money(sum("net"))} icon={Wallet} color="#30D158" testId="year-kpi-net" />
       </div>
+      <MonthsList rows={rows} year={year} />
       <GlassCard className="p-6">
         <Label className="mb-4">Доход по месяцам</Label>
         <div className="h-[300px]">
@@ -180,18 +210,20 @@ export default function StatsPage() {
   const [mode, setMode] = useState("month");
   const [month, setMonth] = useState(monthKey());
   const year = Number(month.slice(0, 4));
+  const { data: settings } = useSettings();
   const move = (d) => setMonth(mode === "month" ? shiftMonth(month, d) : `${year + d}-${month.slice(5)}`);
   return (
     <div className="space-y-5" data-testid="stats-page">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <Label>Статистика</Label>
-          <h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-tight mt-1" data-testid="stats-title">{mode === "month" ? monthTitle(month) : `${year} год`}</h1>
+          <h1 className="font-display text-[34px] sm:text-[40px] font-bold tracking-tight mt-1" data-testid="stats-title">{mode === "month" ? monthTitle(month) : `${year} год`}</h1>
+          <div className="num text-[15px] txt-2 mt-0.5" data-testid="stats-hourly-rate">{money2(settings?.hourly_rate)} в час</div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex p-1 rounded-full bg-soft border hair">
+          <div className="flex p-0.5 rounded-[9px] bg-soft">
             {[["month", "Месяц"], ["year", "Год"]].map(([k, l]) => (
-              <button key={k} onClick={() => setMode(k)} className={`h-9 px-4 rounded-full text-sm font-semibold transition-colors ${mode === k ? "bg-[#0A84FF] text-white" : "txt-2"}`} data-testid={`stats-mode-${k}`}>{l}</button>
+              <button key={k} onClick={() => setMode(k)} className={`h-8 px-5 rounded-[7px] text-[13px] font-semibold transition-colors ${mode === k ? "bg-white dark:bg-[#636366] shadow-sm" : ""}`} data-testid={`stats-mode-${k}`}>{l}</button>
             ))}
           </div>
           <button onClick={() => move(-1)} className="w-10 h-10 rounded-full grid place-items-center bg-soft border hair" data-testid="stats-prev"><ChevronLeft size={18} /></button>

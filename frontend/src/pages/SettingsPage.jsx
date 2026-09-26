@@ -114,8 +114,8 @@ export default function SettingsPage() {
   return (
     <div className="space-y-5" data-testid="settings-page">
       <div className="flex items-end justify-between gap-3">
-        <div><Label>Настройки</Label><h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-tight mt-1">Под вас</h1></div>
-        <button onClick={save} disabled={saving} className="h-11 px-6 rounded-full bg-[#0A84FF] text-white font-semibold flex items-center gap-2 shadow-[0_10px_24px_-8px_rgba(10,132,255,0.7)] active:scale-95 transition-transform disabled:opacity-50" data-testid="settings-save-button"><Save size={16} /> Сохранить</button>
+        <div><Label>Настройки</Label><h1 className="font-display text-[34px] sm:text-[40px] font-bold tracking-tight mt-1">Под вас</h1></div>
+        <button onClick={save} disabled={saving} className="h-11 px-6 rounded-full bg-[#0A84FF] text-white font-semibold flex items-center gap-2 active:scale-95 transition-transform disabled:opacity-50" data-testid="settings-save-button"><Save size={16} /> Сохранить</button>
       </div>
 
       <Tabs defaultValue="main">
@@ -135,7 +135,7 @@ export default function SettingsPage() {
               <Label className="mb-2">Рабочие дни недели</Label>
               <div className="flex gap-2 flex-wrap">
                 {WD_SHORT.map((w, i) => (
-                  <button key={w} onClick={() => toggleDay(i)} className={`w-12 h-12 rounded-2xl font-semibold text-sm border transition-all active:scale-95 ${f.work_days.includes(i) ? "bg-[#30D158] text-[#04140A] border-transparent" : "bg-soft hair txt-2"}`} data-testid={`settings-workday-${i}`}>{w}</button>
+                  <button key={w} onClick={() => toggleDay(i)} className={`w-12 h-12 rounded-2xl font-semibold text-sm border transition-all active:scale-95 ${f.work_days.includes(i) ? "bg-[#34C759] text-white border-transparent" : "bg-soft hair txt-2"}`} data-testid={`settings-workday-${i}`}>{w}</button>
                 ))}
               </div>
             </div>
@@ -190,7 +190,7 @@ export default function SettingsPage() {
         <TabsContent value="look" className="mt-5">
           <div className="grid sm:grid-cols-2 gap-5">
             {[["light", "Светлая", Sun], ["dark", "Тёмная", Moon]].map(([k, l, Icon]) => (
-              <button key={k} onClick={() => setTheme(k)} data-testid={`settings-theme-${k}`} className={`glass rounded-[28px] p-6 text-left transition-all ${theme === k ? "ring-2 ring-[#0A84FF]" : ""}`}>
+              <button key={k} onClick={() => setTheme(k)} data-testid={`settings-theme-${k}`} className={`glass rounded-[20px] p-6 text-left transition-all ${theme === k ? "ring-2 ring-[#0A84FF]" : ""}`}>
                 <div className={`h-28 rounded-2xl mb-4 grid place-items-center ${k === "dark" ? "bg-[#0B0C12] text-white" : "bg-[#F5F5F7] text-black"}`}><Icon size={30} /></div>
                 <div className="font-semibold">{l}</div>
               </button>

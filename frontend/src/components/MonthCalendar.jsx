@@ -22,9 +22,8 @@ export const MonthCalendar = ({ days, types, onSelect, today }) => {
               key={d.date}
               onClick={() => onSelect(d.date)}
               data-testid={`calendar-day-${d.date}`}
-              className="group relative aspect-square sm:aspect-[1/0.92] rounded-2xl p-1.5 sm:p-2.5 flex flex-col text-left border transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-95 fade-up overflow-hidden"
+              className="group relative aspect-square sm:aspect-[1/0.92] rounded-2xl p-1.5 sm:p-2.5 flex flex-col text-left border transition-all active:opacity-70 overflow-hidden"
               style={{
-                animationDelay: `${i * 12}ms`,
                 background: color ? `${color}22` : off ? "transparent" : "var(--soft)",
                 borderColor: isToday ? "#0A84FF" : color ? `${color}45` : "var(--hair)",
                 boxShadow: isToday ? "0 0 0 2px #0A84FF" : undefined,

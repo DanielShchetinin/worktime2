@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Clock, Flame, Wallet, Coins, PartyPopper, Sparkles, ArrowUpRight } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { useAuth } from "@/context/AuthContext";
-import { useMonthStats, useSettings, useHolidays, typeMap } from "@/hooks/useData";
+import { useMonthStats, useSettings, useHolidays } from "@/hooks/useData";
 import { monthKey, todayISO, hrs, money, dateShort, parseISO, WD_SHORT, rateColor, HOLIDAY_KIND } from "@/lib/format";
 import { GlassCard, Label, Kpi } from "@/components/Glass";
 import { ActivityRings, RING_COLORS } from "@/components/ActivityRings";
@@ -78,10 +78,10 @@ const UpcomingHolidays = () => {
   return (
     <GlassCard className="p-6 h-full" data-testid="upcoming-holidays-card">
       <Label>Ближайшие праздники · Израиль</Label>
-      <div className="mt-4 space-y-2">
+      <div className="mt-2">
         {list.map((h) => (
-          <div key={h.date} className="flex items-center gap-3 rounded-2xl bg-soft px-3 py-2.5">
-            <div className="w-11 h-11 rounded-xl grid place-items-center shrink-0" style={{ background: h.day_off ? "#FF950022" : "#FFCC0022", color: h.day_off ? "#FF9500" : "#E0B000" }}><PartyPopper size={18} /></div>
+          <div key={h.date} className="flex items-center gap-3 py-3 border-b hair last:border-0">
+            <div className="w-9 h-9 rounded-[10px] grid place-items-center shrink-0" style={{ background: h.day_off ? "#FF950020" : "#FFCC0020", color: h.day_off ? "#FF9500" : "#D4A200" }}><PartyPopper size={16} /></div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold truncate">{h.name}</div>
               <div className="text-xs txt-2">{HOLIDAY_KIND[h.kind]}{h.day_off ? " · выходной" : h.norm_hours ? ` · ${h.norm_hours}ч` : " · короткий"}</div>
@@ -100,19 +100,18 @@ const AiTeaser = () => {
   const [q, setQ] = useState("");
   const go = () => nav(`/chat${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ""}`);
   return (
-    <GlassCard className="p-6 sm:p-7 overflow-hidden relative" data-testid="ai-teaser-card">
-      <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full blur-3xl opacity-40 bg-gradient-to-br from-[#BF5AF2] to-[#0A84FF]" />
-      <div className="relative flex flex-col lg:flex-row lg:items-center gap-5">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl grid place-items-center bg-gradient-to-br from-[#BF5AF2] to-[#0A84FF] text-white shadow-lg shrink-0"><Sparkles size={22} /></div>
+    <GlassCard className="p-5 sm:p-6" data-testid="ai-teaser-card">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-[11px] grid place-items-center bg-[#0A84FF] text-white shrink-0"><Sparkles size={19} /></div>
           <div>
-            <div className="font-display text-xl font-semibold">Объясните словами — ассистент настроит</div>
-            <div className="text-sm txt-2">Праздники, полдня, 125/150/200%, отпуска, бонусы +30%</div>
+            <div className="text-[17px] font-semibold">Ассистент</div>
+            <div className="text-[13px] txt-2">Опишите словами: праздники, короткие дни, ставки, отпуска</div>
           </div>
         </div>
         <div className="flex-1 flex gap-2">
-          <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} className="field !h-12 !rounded-full !px-5" placeholder="В канун праздников работаем до 13:00…" data-testid="ai-teaser-input" />
-          <button onClick={go} className="h-12 w-12 shrink-0 rounded-full bg-[#0A84FF] text-white grid place-items-center active:scale-95 transition-transform" data-testid="ai-teaser-send"><ArrowUpRight size={20} /></button>
+          <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} className="field !h-11 !rounded-[12px]" placeholder="В канун праздников работаем до 13:00…" data-testid="ai-teaser-input" />
+          <button onClick={go} className="h-11 w-11 shrink-0 rounded-full bg-[#0A84FF] text-white grid place-items-center active:opacity-70" data-testid="ai-teaser-send"><ArrowUpRight size={19} /></button>
         </div>
       </div>
     </GlassCard>
@@ -126,13 +125,12 @@ export default function Dashboard() {
   const t = stats?.totals || {};
   const tax = stats?.tax || {};
   const cur = settings?.currency || "₪";
-  typeMap(settings);
   return (
     <div className="space-y-5" data-testid="dashboard-page">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <div className="text-sm txt-2 font-medium">{greeting()},</div>
-          <h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-tight" data-testid="dashboard-greeting">{user?.name}</h1>
+          <h1 className="font-display text-[34px] sm:text-[40px] font-bold tracking-tight" data-testid="dashboard-greeting">{user?.name}</h1>
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-12 gap-5">

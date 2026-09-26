@@ -38,15 +38,15 @@ const ToolChips = ({ tools }) =>
 const Bubble = ({ m, i }) =>
   m.role === "user" ? (
     <div className="flex justify-end fade-up" data-testid={`chat-message-user-${i}`}>
-      <div className="max-w-[85%] rounded-[22px] rounded-br-md px-4 py-2.5 bg-[#0A84FF] text-white text-[15px] whitespace-pre-wrap shadow-[0_8px_24px_-10px_rgba(10,132,255,0.7)]">{m.content}</div>
+      <div className="max-w-[85%] rounded-[20px] rounded-br-md px-4 py-2.5 bg-[#0A84FF] text-white text-[15px] whitespace-pre-wrap">{m.content}</div>
     </div>
   ) : (
     <div className="flex gap-3 fade-up" data-testid={`chat-message-assistant-${i}`}>
-      <div className="w-8 h-8 rounded-full shrink-0 grid place-items-center bg-gradient-to-br from-[#BF5AF2] to-[#0A84FF] text-white"><Sparkles size={15} /></div>
+      <div className="w-8 h-8 rounded-full shrink-0 grid place-items-center bg-[#0A84FF] text-white"><Sparkles size={15} /></div>
       <div className="max-w-[85%] min-w-0">
         <ToolChips tools={m.tools} />
         {m.live && !m.content && <div className="flex gap-1 py-3">{[0, 1, 2].map((d) => <span key={d} className="w-2 h-2 rounded-full bg-current opacity-50 animate-bounce" style={{ animationDelay: `${d * 120}ms` }} />)}</div>}
-        {m.content && <div className="glass rounded-[22px] rounded-tl-md px-4 py-3 text-[15px] md"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}
+        {m.content && <div className="rounded-[20px] rounded-tl-md px-4 py-2.5 text-[15px] md bg-[#E9E9EB] dark:bg-[#26262A]"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}
       </div>
     </div>
   );
@@ -108,7 +108,7 @@ export default function ChatPage() {
       <div className="flex items-end justify-between gap-3 mb-4">
         <div>
           <Label>ИИ-ассистент · Claude</Label>
-          <h1 className="font-display text-3xl sm:text-5xl font-semibold tracking-tight mt-1">Объясните словами</h1>
+          <h1 className="font-display text-[30px] sm:text-[40px] font-bold tracking-tight mt-1">Объясните словами</h1>
         </div>
         {msgs.length > 0 && <button onClick={clear} className="h-10 px-4 rounded-full bg-soft border hair text-sm font-semibold txt-2 hover:text-[#FF453A] flex items-center gap-2" data-testid="chat-clear-button"><Trash2 size={15} /> <span className="hidden sm:inline">Очистить</span></button>}
       </div>
@@ -117,7 +117,7 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5" data-testid="chat-messages">
           {msgs.length === 0 && (
             <div className="h-full flex flex-col items-center justify-center text-center px-2">
-              <div className="w-16 h-16 rounded-3xl grid place-items-center bg-gradient-to-br from-[#BF5AF2] via-[#FF375F] to-[#0A84FF] text-white shadow-2xl mb-5"><Wrench size={28} /></div>
+              <div className="w-14 h-14 rounded-[16px] grid place-items-center bg-[#0A84FF] text-white mb-5"><Wrench size={28} /></div>
               <div className="font-display text-2xl font-semibold">Настрою всё за вас</div>
               <p className="txt-2 text-sm mt-2 max-w-md">Расскажите, как у вас на работе: праздники, короткие дни, ставки 125/150/200%, отпуска, бонусы. Я сам внесу настройки и записи.</p>
               <div className="grid sm:grid-cols-2 gap-2 mt-6 w-full max-w-2xl">

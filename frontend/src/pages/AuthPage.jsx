@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Clock, Sparkles, PartyPopper, Wallet } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { apiError } from "@/lib/api";
-import { Backdrop } from "@/components/Backdrop";
 import { ActivityRings, RING_COLORS } from "@/components/ActivityRings";
 import { ThemeToggle } from "@/components/AppShell";
 
@@ -29,12 +28,12 @@ const Hero = () => (
       <div><div className="num text-4xl font-semibold">08:24</div><div className="text-xs txt-2 mt-1">сегодня</div></div>
     </ActivityRings>
     <h1 className="font-display text-5xl xl:text-6xl font-semibold tracking-tight mt-10 leading-[1.02]">
-      Каждая минута —<br />
-      <span className="bg-gradient-to-r from-[#FF2D55] via-[#FF9500] to-[#0A84FF] bg-clip-text text-transparent">на своём месте.</span>
+      Каждая минута<br />
+      <span className="txt-2">на своём месте.</span>
     </h1>
     <div className="grid grid-cols-2 gap-3 mt-8 max-w-lg">
       {FEATURES.map((f, i) => (
-        <motion.div key={f.text} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.08 }} className="glass rounded-2xl p-3.5 flex items-center gap-3">
+        <motion.div key={f.text} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.08 }} className="flex items-center gap-3 py-1">
           <span className="w-8 h-8 rounded-full grid place-items-center shrink-0" style={{ background: `${f.c}22`, color: f.c }}><f.icon size={16} /></span>
           <span className="text-sm font-medium">{f.text}</span>
         </motion.div>
@@ -72,7 +71,6 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen relative overflow-hidden" data-testid="auth-page">
-      <Backdrop />
       <div className="absolute top-5 right-5 z-20"><ThemeToggle /></div>
       <div className="relative z-10 min-h-screen max-w-6xl mx-auto px-5 grid lg:grid-cols-2 items-center gap-6 py-10">
         <Hero />
@@ -80,7 +78,7 @@ export default function AuthPage() {
           <div className="lg:hidden flex justify-center mb-8">
             <ActivityRings size={120} stroke={12} gap={4} rings={[{ value: 0.8, max: 1, colors: RING_COLORS.red }, { value: 0.6, max: 1, colors: RING_COLORS.green }, { value: 0.9, max: 1, colors: RING_COLORS.blue }]} />
           </div>
-          <div className="glass-strong rounded-[32px] p-7 sm:p-9">
+          <div className="glass-strong rounded-[22px] p-7 sm:p-9">
             <div className="font-display text-3xl font-semibold tracking-tight">Смена</div>
             <div className="text-sm txt-2 mt-1">Учёт рабочего времени и заработка</div>
             <div className="flex p-1 rounded-full bg-soft border hair mt-7 relative">
@@ -102,7 +100,7 @@ export default function AuthPage() {
               <input className="field !h-12" type="email" placeholder="Email" required value={f.email} onChange={set("email")} data-testid="auth-email-input" />
               <input className="field !h-12" type="password" placeholder="Пароль (мин. 6 символов)" required minLength={6} value={f.password} onChange={set("password")} data-testid="auth-password-input" />
               {err && <div className="text-sm text-[#FF453A] font-medium" data-testid="auth-error">{err}</div>}
-              <button type="submit" disabled={busy} className="w-full h-12 rounded-full bg-[#0A84FF] text-white font-semibold flex items-center justify-center gap-2 shadow-[0_12px_30px_-10px_rgba(10,132,255,0.8)] active:scale-[0.98] transition-transform disabled:opacity-60" data-testid="auth-submit-button">
+              <button type="submit" disabled={busy} className="w-full h-12 rounded-full bg-[#0A84FF] text-white font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60" data-testid="auth-submit-button">
                 {mode === "login" ? "Войти" : "Создать аккаунт"} <ArrowRight size={17} />
               </button>
             </form>

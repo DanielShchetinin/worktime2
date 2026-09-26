@@ -39,7 +39,6 @@ export const ActivityRings = ({ rings, size = 220, stroke = 18, gap = 5, childre
                 initial={{ pathLength: 0 }}
                 animate={{ pathLength: Math.max(p, 0.001) }}
                 transition={{ duration: 1.5, ease: [0.2, 0.8, 0.2, 1], delay: 0.15 + i * 0.12 }}
-                style={{ filter: `drop-shadow(0 0 6px ${r.colors[0]}80)` }}
               />
             </g>
           );

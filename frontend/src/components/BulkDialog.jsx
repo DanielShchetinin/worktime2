@@ -26,7 +26,7 @@ export const BulkDialog = ({ open, onOpenChange }) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-strong !rounded-[28px] max-w-md w-[calc(100vw-1.5rem)] p-6 border-0" data-testid="bulk-dialog">
+      <DialogContent className="glass !rounded-[20px] max-w-md w-[calc(100vw-1.5rem)] p-6 border-0" data-testid="bulk-dialog">
         <DialogHeader className="text-left">
           <DialogTitle className="font-display text-2xl">Отметить период</DialogTitle>
           <DialogDescription className="txt-2">Отпуск, больничный, неоплачиваемые дни — сразу на диапазон</DialogDescription>

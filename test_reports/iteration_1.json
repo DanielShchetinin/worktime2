@@ -1,0 +1,29 @@
+{
+  "summary": "First-run E2E of Smena work-day tracker. 20/20 backend pytest tests pass (auth, settings, timer, entries, bulk, holidays, stats month/year, chat history, demo seed). Frontend: registration/login/wrong-password/demo login all work; timer start/pause resumes correctly; manual entry with preset 08:00-17:00 saves exactly 462.50 ₪ (matches spec's expected calculation 8h@100 + 1h@125); calendar shows Russian Israeli holidays (Рош ха-Шана, Йом Кипур, Суккот, Ханука) with 11 holiday items in Sept 2026, bulk dialog opens; stats month & year modes render charts; settings persist hourly rate across reload; theme toggle present; AI chat streams a reply and successfully creates vacation entries via tools (5 days вс–чт proststavleno confirmed); mobile 390px shows all 5 bottom tabs (tab-dashboard/calendar/stats/chat/settings) with no horizontal overflow.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard (desktop)", "issues": ["Cosmetic: chart container occasionally emits 'width(-1) height(-1)' Recharts warning on initial render before layout settles; no visible impact but worth checking ResponsiveContainer min sizes"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py logout deletes cookies with samesite='none', secure=True path='/' — good; ensure set_auth_cookies uses identical attrs (in core.py) otherwise browsers may not clear.",
+    "PUT /api/settings accepts arbitrary dict — logic.merge_settings whitelists keys, but consider Pydantic model for validation to reject bad types (e.g., hourly_rate='abc').",
+    "login_attempts lockout uses ISO-string comparison for locked_until — works but fragile; storing datetime and comparing datetimes would be safer.",
+    "seed_demo runs unconditionally on every startup — verify it is idempotent to avoid duplicate/reset entries for demo user each redeploy.",
+    "auto_holidays for eve day sets kind='eve' with day_off False, but if Passover eve etc. is treated as work-day-with-shorter-norm, ensure UI/logic doesn't accidentally mark it a holiday cell.",
+    "server.py imports currently pass ruff (no lint run performed) — recommend running ruff/black in CI."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (20/20)", "frontend": "100% of tested flows"},
+  "test_credentials": "demo@smena.app / demo12345 (seeded); registered ephemeral users test_<uuid>@example.com / Password123!",
+  "seed_data_creation": "Session-scoped fresh test users test_<uuid>@example.com (see backend_test fixture); TEST_ prefixed entries on 2026-03-10/11/12/15, 2026-04-01, 2026-05-04..08, custom holiday 2026-12-25 (deleted after test). All contained to per-test-run users, does not touch admin/demo persistent data (demo only READ).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend pytest file at /app/backend/tests/backend_test.py runs with 2-worker xdist LoadScope; each xdist worker creates its own new_user, so per-worker isolation is fine. Note test emails must use publicly-valid domains (email-validator rejects .test/.example — used @example.com). Server clock is ~2026-09 while local browser dates match. AI chat via Emergent LLM key answered in ~15-20s and successfully executed 'set vacation' and 'add custom holiday' tools; keep chat tests short. Sidebar (desktop >=1024px) uses different nav from bottom-tabs (mobile) — data-testid tab-settings/tab-calendar etc are only visible on mobile viewport. Use direct URL /settings /calendar /stats /chat for desktop nav in tests.",
+  "rca of the issue": "No bugs surfaced. Two minor test-authoring issues found and fixed: (a) email-validator rejects .test TLD -> switched fixture emails to @example.com; (b) xdist workers hold separate session fixtures, so stats worker's user had no March entries -> test now seeds its own entry before assertion."
+}

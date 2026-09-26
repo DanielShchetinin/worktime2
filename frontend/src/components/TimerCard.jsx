@@ -10,7 +10,7 @@ import { EntryDialog } from "@/components/EntryDialog";
 
 const Btn = ({ children, className = "", ...p }) => (
   <button
-    className={`h-12 sm:h-14 px-6 rounded-full font-semibold text-[15px] flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50 ${className}`}
+    className={`h-12 px-5 rounded-[14px] font-semibold text-[16px] flex items-center justify-center gap-2 active:opacity-70 transition-opacity disabled:opacity-50 ${className}`}
     {...p}
   >
     {children}
@@ -66,11 +66,11 @@ export const TimerCard = () => {
   return (
     <GlassCard className="p-5 sm:p-8 h-full overflow-hidden" data-testid="timer-card">
       <div className="flex flex-col lg:flex-row gap-8 items-center">
-        <div className={running ? "pulse-glow" : ""}>
+        <div>
           <ActivityRings
-            size={236}
-            stroke={20}
-            gap={6}
+            size={220}
+            stroke={16}
+            gap={5}
             testId="timer-ring"
             rings={[
               { value: workedSec / 3600, max: norm || 1, colors: RING_COLORS.green },
@@ -78,7 +78,7 @@ export const TimerCard = () => {
             ]}
           >
             <div>
-              <div className="num text-[34px] font-semibold leading-none" data-testid="timer-display">{hms(workedSec)}</div>
+              <div className="num text-[34px] font-bold leading-none" data-testid="timer-display">{hms(workedSec)}</div>
               <div className="text-xs txt-2 mt-2">норма {hrs(norm)}</div>
             </div>
           </ActivityRings>
@@ -102,12 +102,12 @@ export const TimerCard = () => {
               </span>
             )}
           </div>
-          <div className="font-display text-2xl sm:text-3xl font-semibold mt-4 tracking-tight capitalize">{dateLong(today)}</div>
+          <div className="text-[22px] sm:text-[28px] font-bold mt-4 tracking-tight capitalize">{dateLong(today)}</div>
 
           <div className="mt-5 flex items-end gap-4 flex-wrap">
             <div>
               <Label>Заработано сегодня</Label>
-              <div className="num text-4xl sm:text-5xl font-semibold mt-1.5 bg-gradient-to-r from-[#0A84FF] to-[#5E5CE6] bg-clip-text text-transparent" data-testid="timer-live-pay">
+              <div className="num text-4xl sm:text-5xl font-bold mt-1.5" data-testid="timer-live-pay">
                 {money2(livePay)}
               </div>
             </div>
@@ -120,7 +120,7 @@ export const TimerCard = () => {
           {segs.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-1.5" data-testid="timer-segments">
               {segs.map((s, i) => (
-                <span key={i} className="num text-xs px-2.5 py-1 rounded-full bg-soft border hair">
+                <span key={i} className="num text-xs px-2.5 py-1 rounded-md bg-soft">
                   {s.start} – {s.end || "…"}
                 </span>
               ))}
@@ -133,21 +133,21 @@ export const TimerCard = () => {
                 onClick={start}
                 disabled={busy || (active && !running)}
                 data-testid="start-work-button"
-                className="flex-1 sm:flex-none bg-gradient-to-r from-[#30D158] to-[#63E6E2] text-[#04140A] shadow-[0_10px_30px_-8px_rgba(48,209,88,0.6)] hover:brightness-110"
+                className="flex-1 sm:flex-none bg-[#34C759] text-white hover:brightness-110"
               >
-                <Play size={18} fill="currentColor" /> {status === "idle" ? "Начать рабочий день" : "Продолжить"}
+                <Play size={18} fill="currentColor" /> {status === "idle" ? <><span className="sm:hidden">Начать день</span><span className="hidden sm:inline">Начать рабочий день</span></> : "Продолжить"}
               </Btn>
             ) : (
               <>
-                <Btn onClick={pause} disabled={busy} data-testid="pause-work-button" className="flex-1 sm:flex-none bg-soft border hair hover:bg-[#FF9F0A]/15">
+                <Btn onClick={pause} disabled={busy} data-testid="pause-work-button" className="flex-1 sm:flex-none bg-soft">
                   <Pause size={18} fill="currentColor" /> Пауза
                 </Btn>
-                <Btn onClick={finish} disabled={busy} data-testid="finish-work-button" className="flex-1 sm:flex-none bg-[#FF375F] text-white shadow-[0_10px_30px_-8px_rgba(255,55,95,0.6)] hover:brightness-110">
+                <Btn onClick={finish} disabled={busy} data-testid="finish-work-button" className="flex-1 sm:flex-none bg-[#FF375F] text-white hover:brightness-110">
                   <Square size={16} fill="currentColor" /> Завершить день
                 </Btn>
               </>
             )}
-            <Btn onClick={() => setEdit(true)} data-testid="manual-entry-button" className="bg-soft border hair hover:bg-[#0A84FF]/10 !px-5">
+            <Btn onClick={() => setEdit(true)} data-testid="manual-entry-button" className="bg-soft text-[#0A84FF] !px-5">
               <PencilLine size={17} /> Вручную
             </Btn>
           </div>

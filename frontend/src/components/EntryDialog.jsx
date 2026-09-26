@@ -65,7 +65,7 @@ export const EntryDialog = ({ date, open, onOpenChange }) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-strong !rounded-[28px] max-w-2xl w-[calc(100vw-1.5rem)] max-h-[90vh] overflow-y-auto p-5 sm:p-7 border-0" data-testid="entry-dialog">
+      <DialogContent className="glass !rounded-[20px] max-w-2xl w-[calc(100vw-1.5rem)] max-h-[90vh] overflow-y-auto p-5 sm:p-7 border-0" data-testid="entry-dialog">
         <DialogHeader className="text-left">
           <DialogTitle className="font-display text-2xl font-semibold capitalize">{date && dateLong(date)}</DialogTitle>
           <DialogDescription className="txt-2">Отметьте день, время и особые условия</DialogDescription>
@@ -90,7 +90,7 @@ export const EntryDialog = ({ date, open, onOpenChange }) => {
                   return (
                     <button key={x.key} onClick={() => set("day_type", x.key)} data-testid={`day-type-${x.key}`}
                       className="text-left rounded-2xl px-3 py-2.5 border transition-all active:scale-[0.97]"
-                      style={{ background: on ? `${x.color}24` : "var(--soft)", borderColor: on ? x.color : "var(--hair)", boxShadow: on ? `0 0 0 3px ${x.color}26` : "none" }}>
+                      style={{ background: on ? `${x.color}24` : "var(--soft)", borderColor: on ? x.color : "var(--hair)" }}>
                       <div className="flex items-center gap-2 text-sm font-semibold"><span className="w-2 h-2 rounded-full shrink-0" style={{ background: x.color }} /><span className="truncate">{x.name}</span></div>
                       <div className="text-[11px] txt-2 mt-0.5">{KIND_LABELS[x.kind]}{x.kind === "work" && x.rate !== 100 ? ` · ${x.rate}%` : ""}{x.bonus_pct ? ` · +${x.bonus_pct}%` : ""}</div>
                     </button>
@@ -143,7 +143,7 @@ export const EntryDialog = ({ date, open, onOpenChange }) => {
               )}
               <div className="flex-1" />
               <button onClick={() => onOpenChange(false)} className="h-12 px-5 rounded-full text-sm font-semibold bg-soft border hair" data-testid="entry-cancel-button">Отмена</button>
-              <button onClick={save} disabled={busy} className="h-12 px-7 rounded-full text-sm font-semibold bg-[#0A84FF] text-white shadow-[0_10px_24px_-8px_rgba(10,132,255,0.7)] active:scale-95 transition-transform disabled:opacity-50" data-testid="entry-save-button">Сохранить</button>
+              <button onClick={save} disabled={busy} className="h-12 px-7 rounded-full text-sm font-semibold bg-[#0A84FF] text-white active:scale-95 transition-transform disabled:opacity-50" data-testid="entry-save-button">Сохранить</button>
             </div>
           </div>
         )}

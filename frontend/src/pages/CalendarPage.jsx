@@ -28,7 +28,7 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <Label>Календарь</Label>
-          <h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-tight mt-1" data-testid="calendar-month-title">{monthTitle(month)}</h1>
+          <h1 className="font-display text-[34px] sm:text-[40px] font-bold tracking-tight mt-1" data-testid="calendar-month-title">{monthTitle(month)}</h1>
         </div>
         <div className="flex items-center gap-2">
           <NavBtn onClick={() => setMonth(shiftMonth(month, -1))} data-testid="calendar-prev-month"><ChevronLeft size={18} /></NavBtn>
@@ -69,9 +69,9 @@ export default function CalendarPage() {
               <Label>Праздники месяца</Label>
               <button onClick={() => setHol({ open: true, holiday: null })} className="text-xs font-semibold text-[#0A84FF] flex items-center gap-1" data-testid="holiday-add-button"><Plus size={14} /> Свой день</button>
             </div>
-            <div className="mt-4 space-y-2">
+            <div className="mt-2">
               {holidays.map((h) => (
-                <button key={h.date} onClick={() => setHol({ open: true, holiday: h })} className="w-full text-left flex items-center gap-3 rounded-2xl bg-soft px-3 py-2.5 hover:bg-[#FF9500]/10 transition-colors group" data-testid={`holiday-item-${h.date}`}>
+                <button key={h.date} onClick={() => setHol({ open: true, holiday: h })} className="w-full text-left flex items-center gap-3 py-3 border-b hair last:border-0 hover:opacity-70 transition-opacity group" data-testid={`holiday-item-${h.date}`}>
                   <PartyPopper size={16} className="text-[#FF9500] shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold truncate">{h.name}</div>
