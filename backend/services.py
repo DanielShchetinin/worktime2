@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 from core import db, BaseDocument
 from logic import (DEFAULT_SETTINGS, merge_settings, auto_holidays, suggest_type, calc_day, type_map,
-                   month_stats, expected_hours, weekday)
+                   month_stats, expected_hours, weekday, apply_sick_law)
 
 HHMM = r"^([01]\d|2[0-3]):[0-5]\d$"
 DATE = r"^\d{4}-\d{2}-\d{2}$"
@@ -184,12 +184,19 @@ async def bulk_set_days(uid, start, end, day_type, only_workdays=True, comment="
 async def day_info(uid, dstr, s=None, e=None):
     check_date(dstr)
     s = s or await get_settings(uid)
-    hol = (await get_holidays(uid, int(dstr[:4]), s)).get(dstr)
+    hol_all = await get_holidays(uid, int(dstr[:4]), s)
+    hol = hol_all.get(dstr)
     e = e or await get_entry(uid, dstr)
     types = type_map(s)
+    ent = None
+    if e:
+        start = (Date.fromisoformat(dstr) - timedelta(days=31)).isoformat()
+        ctx = {x["date"]: x for x in await list_entries(uid, start, dstr)}
+        ctx[dstr] = e.out()
+        ent = apply_sick_law(ctx, s, hol_all)[dstr]
     return {"date": dstr, "holiday": hol, "suggested_type": suggest_type(dstr, s, hol),
             "expected_hours": expected_hours(dstr, s, types, hol),
-            "entry": e.out() if e else None, "calc": calc_day(e.out(), s, types, hol, now_utc()) if e else None}
+            "entry": e.out() if e else None, "calc": calc_day(ent, s, types, hol, now_utc()) if e else None}
 
 
 # ---------- timer ----------
@@ -233,14 +240,15 @@ async def get_month_stats(uid, month: str, today: Optional[str] = None):
     y, m = int(month[:4]), int(month[5:7])
     s = await get_settings(uid)
     hol = await get_holidays(uid, y, s)
-    entries = {e["date"]: e for e in await list_entries(uid, f"{month}-01", f"{month}-31")}
+    start = (Date(y, m, 1) - timedelta(days=31)).isoformat()
+    entries = {e["date"]: e for e in await list_entries(uid, start, f"{month}-31")}
     return month_stats(s, entries, hol, y, m, now_utc(), today or Date.today().isoformat())
 
 
 async def get_year_stats(uid, year: int, today: Optional[str] = None):
     s = await get_settings(uid)
     hol = await get_holidays(uid, year, s)
-    all_e = {e["date"]: e for e in await list_entries(uid, f"{year}-01-01", f"{year}-12-31")}
+    all_e = {e["date"]: e for e in await list_entries(uid, f"{year - 1}-12-01", f"{year}-12-31")}
     months = []
     for m in range(1, 13):
         r = month_stats(s, all_e, hol, year, m, now_utc(), today or Date.today().isoformat())

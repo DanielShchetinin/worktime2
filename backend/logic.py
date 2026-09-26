@@ -38,6 +38,11 @@ DEFAULT_SETTINGS = {
     "auto_holidays": True,
     "show_optional_holidays": True,
     "auto_paid_holidays": False,
+    "sick_law_il": True,
+    "reminders_enabled": False,
+    "reminder_start_time": "08:30",
+    "reminder_end_time": "18:00",
+    "timezone": "Asia/Jerusalem",
     "day_types": DEFAULT_DAY_TYPES,
 }
 
@@ -156,8 +161,10 @@ def calc_day(entry, s, types, hol, now):
         worked = sum(breakdown.values())
         current_rate = base if h < norm else (ot1 if h < norm + ot1h else ot2)
     elif t["kind"] == "paid":
+        pay_percent = entry.get("pay_percent_override")
+        pay_percent = float(t.get("pay_percent") or 0) if pay_percent is None else float(pay_percent)
         leave_hours = float(entry.get("paid_hours") or norm)
-        leave_pay = leave_hours * hourly * float(t.get("pay_percent") or 0) / 100
+        leave_pay = leave_hours * hourly * pay_percent / 100
 
     pay_by_rate = {k: round(v * hourly * float(k) / 100, 2) for k, v in breakdown.items()}
     work_pay = sum(pay_by_rate.values())
@@ -172,7 +179,35 @@ def calc_day(entry, s, types, hol, now):
         "work_pay": round(work_pay, 2), "bonus_pay": round(bonus_pay, 2), "leave_pay": round(leave_pay, 2),
         "extra_pay": round(extra, 2), "gross": round(work_pay + bonus_pay + leave_pay + extra, 2),
         "current_rate": current_rate, "hourly_rate": hourly,
+        "pay_percent": pay_percent if t["kind"] == "paid" else None, "sick_day": entry.get("sick_day"),
     }
+
+
+def sick_day_index(dstr, entries, s, hol):
+    n, d = 1, Date.fromisoformat(dstr)
+    for _ in range(60):
+        d -= timedelta(days=1)
+        k = d.isoformat()
+        e = entries.get(k)
+        if e and e.get("day_type") == "sick":
+            n += 1
+        elif e is None and (weekday(k) not in s["work_days"] or (hol.get(k) or {}).get("day_off")):
+            continue
+        else:
+            break
+    return n
+
+
+def apply_sick_law(entries: dict, s, hol: dict):
+    """Israeli sick pay: day 1 — 0%, days 2–3 — 50%, from day 4 — 100%."""
+    if not s.get("sick_law_il"):
+        return entries
+    out = dict(entries)
+    for k, e in entries.items():
+        if e.get("day_type") == "sick":
+            n = sick_day_index(k, entries, s, hol)
+            out[k] = {**e, "sick_day": n, "pay_percent_override": 0 if n == 1 else 50 if n <= 3 else 100}
+    return out
 
 
 TAX_BRACKETS = [(7010, .10), (10060, .14), (16150, .20), (22440, .31), (46690, .35), (60130, .47), (float("inf"), .50)]
@@ -200,6 +235,7 @@ def estimate_tax(gross, s):
 
 def month_stats(s, entries: dict, hol: dict, year: int, month: int, now, today: str):
     types = type_map(s)
+    entries = apply_sick_law(entries, s, hol)
     days = []
     tot = {"worked_hours": 0.0, "credited_hours": 0.0, "overtime_hours": 0.0, "leave_hours": 0.0,
            "expected_hours": 0.0, "expected_to_date": 0.0, "work_pay": 0.0, "bonus_pay": 0.0, "leave_pay": 0.0,

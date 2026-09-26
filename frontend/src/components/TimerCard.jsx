@@ -154,6 +154,12 @@ export const TimerCard = () => {
           {active && !running && (
             <div className="text-xs text-[#FF9F0A] mt-3">Незавершённая смена от {active.date}. Откройте её в календаре.</div>
           )}
+          {settings?.reminders_enabled && running && nowHM() >= settings.reminder_end_time && (
+            <div className="mt-3 text-[13px] font-medium text-[#FF9500]" data-testid="timer-end-reminder">Рабочий день закончился в {settings.reminder_end_time} — не забудьте завершить смену</div>
+          )}
+          {settings?.reminders_enabled && status === "idle" && info?.expected_hours > 0 && nowHM() >= settings.reminder_start_time && (
+            <div className="mt-3 text-[13px] font-medium text-[#0A84FF]" data-testid="timer-start-reminder">Пора начинать — по плану смена с {settings.reminder_start_time}</div>
+          )}
         </div>
       </div>
       <EntryDialog date={today} open={edit} onOpenChange={setEdit} />

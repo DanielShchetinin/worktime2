@@ -21,11 +21,9 @@ export const useDay = (date, enabled = true) =>
 export const useHolidays = (year) =>
   useQuery({ queryKey: ["holidays", year], queryFn: () => get("/holidays", { year }) });
 
-export const useChatHistory = () => useQuery({ queryKey: ["chat"], queryFn: () => get("/chat/history") });
-
-export function useRefreshAll() {
+export const useRefreshAll = () => {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "chat" });
-}
+  return () => qc.invalidateQueries();
+};
 
 export const typeMap = (settings) => Object.fromEntries((settings?.day_types || []).map((t) => [t.key, t]));

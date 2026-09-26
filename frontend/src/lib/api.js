@@ -63,13 +63,32 @@ export function apiError(e) {
   return String(detail);
 }
 
-export async function streamChat(message, today, onEvent) {
+export async function transcribe(blob, filename) {
+  const fd = new FormData();
+  fd.append("file", blob, filename);
+  const { data } = await api.post("/chat/transcribe", fd);
+  return data.text;
+}
+
+export async function downloadReport(month, format, today) {
+  const { data } = await api.get("/reports/month", { params: { month, format, today }, responseType: "blob" });
+  const url = URL.createObjectURL(data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `smena-${month}.${format}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+export async function streamChat(message, today, history, onEvent) {
   await api.get("/auth/me");
   const res = await fetch(`${BASE}/api/chat/stream`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokens.get()}` },
-    body: JSON.stringify({ message, today }),
+    body: JSON.stringify({ message, today, history }),
   });
   if (!res.ok) throw new Error(`Ошибка ${res.status}`);
   const reader = res.body.getReader();

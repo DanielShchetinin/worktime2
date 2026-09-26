@@ -94,7 +94,7 @@ export default function AppShell() {
   return (
     <div className="min-h-screen relative">
       <Sidebar />
-      <header className="md:hidden sticky top-0 z-40 px-4 h-12 flex items-center justify-between glass-strong border-b hair">
+      <header className="md:hidden sticky top-0 z-40 px-4 flex items-center justify-between glass-strong border-b hair" style={{ paddingTop: "env(safe-area-inset-top)", height: "calc(48px + env(safe-area-inset-top))" }}>
         <Logo />
         <ThemeToggle />
       </header>

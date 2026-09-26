@@ -12,6 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 import { WD_SHORT, KIND_LABELS, HOLIDAY_KIND, dateShort } from "@/lib/format";
 import { GlassCard, Label, Spinner } from "@/components/Glass";
 import { HolidayDialog } from "@/components/HolidayDialog";
+import { PhoneSettings } from "@/components/PhoneSettings";
 
 const Field = ({ label, hint, children }) => (
   <div>
@@ -120,7 +121,7 @@ export default function SettingsPage() {
 
       <Tabs defaultValue="main">
         <TabsList className="glass !rounded-full h-auto p-1 flex w-full overflow-x-auto no-scrollbar justify-start">
-          {[["main", "Основное"], ["rates", "Ставки"], ["types", "Категории"], ["holidays", "Праздники"], ["tax", "Налоги"], ["look", "Вид"]].map(([k, l]) => (
+          {[["main", "Основное"], ["rates", "Ставки"], ["types", "Категории"], ["holidays", "Праздники"], ["tax", "Налоги"], ["phone", "Телефон"], ["look", "Вид"]].map(([k, l]) => (
             <TabsTrigger key={k} value={k} className="rounded-full px-4 h-9 data-[state=active]:bg-[#0A84FF] data-[state=active]:text-white shrink-0" data-testid={`settings-tab-${k}`}>{l}</TabsTrigger>
           ))}
         </TabsList>
@@ -150,6 +151,7 @@ export default function SettingsPage() {
             <Field label="Сверхурочные в праздник/выходной, %"><Num value={f.special_ot_rate} onChange={(v) => set("special_ot_rate", v)} testId="settings-special-ot-rate" /></Field>
             <Field label="Перерыв по умолчанию, мин"><Num value={f.break_minutes_default} onChange={(v) => set("break_minutes_default", v)} testId="settings-break-default" /></Field>
             <Field label="Проезд за рабочий день, ₪"><Num step="0.5" value={f.travel_per_day} onChange={(v) => set("travel_per_day", v)} testId="settings-travel" /></Field>
+            <div className="sm:col-span-2 lg:col-span-3"><Toggle title="Больничный по закону Израиля" desc="1-й день не оплачивается, 2–3-й — 50%, с 4-го — 100%" checked={f.sick_law_il} onChange={(v) => set("sick_law_il", v)} testId="settings-sick-law" /></div>
           </GlassCard>
         </TabsContent>
 
@@ -185,6 +187,10 @@ export default function SettingsPage() {
               <Field label="Керен иштальмут, %"><Num step="0.5" value={f.study_fund_pct} onChange={(v) => set("study_fund_pct", v)} testId="settings-study-fund" /></Field>
             </div>
           </GlassCard>
+        </TabsContent>
+
+        <TabsContent value="phone" className="mt-5">
+          <PhoneSettings f={f} set={set} />
         </TabsContent>
 
         <TabsContent value="look" className="mt-5">

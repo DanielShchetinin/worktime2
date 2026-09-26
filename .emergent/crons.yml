@@ -1,0 +1,8 @@
+crons:
+  - name: shift-reminders
+    description: "Sends push reminders to start the work day or finish a forgotten running shift"
+    cron: "*/15 * * * *"
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    endpoint: "{{BASE_URL}}/api/cron/reminders"
+    method: POST
+    enabled: true

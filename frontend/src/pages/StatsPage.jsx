@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Clock, Timer, Flame, CalendarCheck, Coins, Wallet } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Timer, Flame, CalendarCheck, Coins, Wallet, FileDown, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { downloadReport, apiError } from "@/lib/api";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useMonthStats, useYearStats, useSettings, typeMap } from "@/hooks/useData";
-import { monthKey, shiftMonth, monthTitle, hrs, hrsShort, money, money2, rateColor, dateShort, MONTHS_SHORT } from "@/lib/format";
+import { monthKey, shiftMonth, monthTitle, hrs, hrsShort, money, money2, rateColor, dateShort, MONTHS_SHORT, todayISO } from "@/lib/format";
 import { GlassCard, Label, Kpi, RateBadge, TypePill, Spinner } from "@/components/Glass";
 
 const tip = { background: "var(--glass-strong)", border: "1px solid var(--glass-border)", borderRadius: 14, backdropFilter: "blur(20px)", fontSize: 12 };
@@ -206,6 +208,30 @@ const YearView = ({ year }) => {
   );
 };
 
+const ReportButtons = ({ month }) => {
+  const [busy, setBusy] = useState(null);
+  const get = async (fmt) => {
+    setBusy(fmt);
+    try {
+      await downloadReport(month, fmt, todayISO());
+      toast.success("Отчёт скачан");
+    } catch (e) {
+      toast.error(apiError(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <div className="flex gap-1.5">
+      {[["pdf", "PDF"], ["xlsx", "Excel"]].map(([f, l]) => (
+        <button key={f} onClick={() => get(f)} disabled={!!busy} className="h-10 px-3.5 rounded-full bg-soft text-sm font-semibold text-[#0A84FF] flex items-center gap-1.5 disabled:opacity-50 active:opacity-70" data-testid={`report-download-${f}`}>
+          {busy === f ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} {l}
+        </button>
+      ))}
+    </div>
+  );
+};
+
 export default function StatsPage() {
   const [mode, setMode] = useState("month");
   const [month, setMonth] = useState(monthKey());
@@ -228,6 +254,7 @@ export default function StatsPage() {
           </div>
           <button onClick={() => move(-1)} className="w-10 h-10 rounded-full grid place-items-center bg-soft border hair" data-testid="stats-prev"><ChevronLeft size={18} /></button>
           <button onClick={() => move(1)} className="w-10 h-10 rounded-full grid place-items-center bg-soft border hair" data-testid="stats-next"><ChevronRight size={18} /></button>
+          {mode === "month" && <ReportButtons month={month} />}
         </div>
       </div>
       {mode === "month" ? <MonthView month={month} /> : <YearView year={year} />}

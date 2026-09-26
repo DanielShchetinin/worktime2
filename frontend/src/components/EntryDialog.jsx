@@ -129,7 +129,7 @@ export const EntryDialog = ({ date, open, onOpenChange }) => {
             )}
 
             {t?.kind === "paid" && (
-              <div><Label className="mb-2">Оплачиваемых часов</Label><input type="number" step="0.1" className="field num" placeholder={String(data?.expected_hours || settings?.daily_norm_hours)} value={f.paid_hours ?? ""} onChange={(e) => set("paid_hours", e.target.value)} data-testid="entry-paid-hours-input" /><p className="text-xs txt-2 mt-2">Оплата {t.pay_percent}% от ставки</p></div>
+              <div><Label className="mb-2">Оплачиваемых часов</Label><input type="number" step="0.1" className="field num" placeholder={String(data?.expected_hours || settings?.daily_norm_hours)} value={f.paid_hours ?? ""} onChange={(e) => set("paid_hours", e.target.value)} data-testid="entry-paid-hours-input" /><p className="text-xs txt-2 mt-2" data-testid="entry-paid-hint">{t.key === "sick" && settings?.sick_law_il ? (data?.calc?.sick_day ? `День болезни №${data.calc.sick_day} · оплата ${data.calc.pay_percent}% по закону Израиля` : "По закону Израиля: 1-й день — 0%, 2–3-й — 50%, с 4-го — 100%") : `Оплата ${t.pay_percent}% от ставки`}</p></div>
             )}
 
             <div className="grid sm:grid-cols-3 gap-3">

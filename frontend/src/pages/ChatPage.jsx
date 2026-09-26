@@ -2,13 +2,76 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowUp, Sparkles, Trash2, Wrench, Check } from "lucide-react";
+import { ArrowUp, Sparkles, SquarePen, Wrench, Check, Mic, Square, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
-import { api, streamChat } from "@/lib/api";
-import { useChatHistory, useRefreshAll } from "@/hooks/useData";
+import { streamChat, transcribe, apiError } from "@/lib/api";
+import { useRefreshAll } from "@/hooks/useData";
 import { todayISO } from "@/lib/format";
 import { GlassCard, Label } from "@/components/Glass";
+
+const SESSION_KEY = "smena_chat_session";
+
+const VoiceButton = ({ onText, disabled }) => {
+  const [state, setState] = useState("idle");
+  const [sec, setSec] = useState(0);
+  const rec = useRef(null);
+  const chunks = useRef([]);
+  const timer = useRef(null);
+
+  useEffect(() => () => {
+    clearInterval(timer.current);
+    if (rec.current?.state === "recording") rec.current.stop();
+  }, []);
+
+  const start = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((t) => window.MediaRecorder?.isTypeSupported?.(t)) || "";
+      const mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+      chunks.current = [];
+      mr.ondataavailable = (e) => e.data.size && chunks.current.push(e.data);
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        clearInterval(timer.current);
+        const mime = mr.mimeType || type || "audio/webm";
+        const blob = new Blob(chunks.current, { type: mime });
+        if (blob.size < 1000) return setState("idle");
+        setState("busy");
+        try {
+          const text = await transcribe(blob, `voice.${mime.includes("mp4") ? "mp4" : "webm"}`);
+          if (text) onText(text);
+          else toast.error("Не удалось разобрать речь");
+        } catch (e) {
+          toast.error(apiError(e));
+        }
+        setState("idle");
+      };
+      mr.start();
+      rec.current = mr;
+      setSec(0);
+      setState("rec");
+      timer.current = setInterval(() => setSec((s) => s + 1), 1000);
+    } catch {
+      toast.error("Нет доступа к микрофону");
+    }
+  };
+
+  const stop = () => rec.current?.state === "recording" && rec.current.stop();
+
+  if (state === "rec")
+    return (
+      <button onClick={stop} className="h-10 pl-3 pr-4 shrink-0 rounded-full bg-[#FF3B30] text-white flex items-center gap-2 text-sm font-semibold active:opacity-70" data-testid="chat-voice-stop">
+        <span className="w-2 h-2 rounded-full bg-white blink" />
+        <span className="num">{Math.floor(sec / 60)}:{String(sec % 60).padStart(2, "0")}</span>
+        <Square size={13} fill="currentColor" />
+      </button>
+    );
+  return (
+    <button onClick={start} disabled={disabled || state === "busy"} className="w-10 h-10 shrink-0 rounded-full bg-soft text-[#0A84FF] grid place-items-center disabled:opacity-40 active:opacity-70" data-testid="chat-voice-button" aria-label="Голосовой ввод">
+      {state === "busy" ? <Loader2 size={18} className="animate-spin" /> : <Mic size={19} />}
+    </button>
+  );
+};
 
 const TOOL_LABELS = {
   get_settings: "Смотрю настройки", update_settings: "Обновил настройки", upsert_day_type: "Настроил категорию",
@@ -52,28 +115,29 @@ const Bubble = ({ m, i }) =>
   );
 
 export default function ChatPage() {
-  const { data: hist } = useChatHistory();
-  const qc = useQueryClient();
   const refresh = useRefreshAll();
-  const [msgs, setMsgs] = useState([]);
+  const [msgs, setMsgs] = useState(() => JSON.parse(sessionStorage.getItem(SESSION_KEY) || "[]"));
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [params, setParams] = useSearchParams();
   const endRef = useRef(null);
   const sentQ = useRef(false);
 
-  useEffect(() => { if (hist) setMsgs(hist); }, [hist]);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [msgs]);
+  useEffect(() => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(msgs.filter((m) => !m.live)));
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs]);
 
   const send = async (raw) => {
     const content = (raw ?? text).trim();
     if (!content || busy) return;
+    const history = msgs.filter((m) => m.content).map((m) => ({ role: m.role, content: m.content }));
     setText("");
     setBusy(true);
     setMsgs((p) => [...p, { role: "user", content }, { role: "assistant", content: "", tools: [], live: true }]);
     const patch = (fn) => setMsgs((p) => { const c = [...p]; c[c.length - 1] = fn(c[c.length - 1]); return c; });
     try {
-      await streamChat(content, todayISO(), (ev) => {
+      await streamChat(content, todayISO(), history, (ev) => {
         if (ev.type === "delta") patch((m) => ({ ...m, content: m.content + ev.content }));
         else if (ev.type === "tool") patch((m) => ({ ...m, tools: [...m.tools, ev.name] }));
         else if (ev.type === "error") toast.error(ev.content);
@@ -84,23 +148,21 @@ export default function ChatPage() {
     } finally {
       patch((m) => ({ ...m, live: false }));
       setBusy(false);
-      qc.invalidateQueries({ queryKey: ["chat"] });
     }
   };
 
   useEffect(() => {
     const q = params.get("q");
-    if (q && !sentQ.current && hist) {
+    if (q && !sentQ.current) {
       sentQ.current = true;
       setParams({}, { replace: true });
       send(q);
     }
-  }, [params, hist]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const clear = async () => {
-    await api.delete("/chat/history");
+  const newChat = () => {
     setMsgs([]);
-    qc.invalidateQueries({ queryKey: ["chat"] });
+    sessionStorage.removeItem(SESSION_KEY);
   };
 
   return (
@@ -110,7 +172,7 @@ export default function ChatPage() {
           <Label>ИИ-ассистент · Claude</Label>
           <h1 className="font-display text-[30px] sm:text-[40px] font-bold tracking-tight mt-1">Объясните словами</h1>
         </div>
-        {msgs.length > 0 && <button onClick={clear} className="h-10 px-4 rounded-full bg-soft border hair text-sm font-semibold txt-2 hover:text-[#FF453A] flex items-center gap-2" data-testid="chat-clear-button"><Trash2 size={15} /> <span className="hidden sm:inline">Очистить</span></button>}
+        {msgs.length > 0 && <button onClick={newChat} disabled={busy} className="h-10 px-4 rounded-full bg-soft text-sm font-semibold text-[#0A84FF] flex items-center gap-2 disabled:opacity-40" data-testid="chat-new-button"><SquarePen size={15} /> <span className="hidden sm:inline">Новый чат</span></button>}
       </div>
 
       <GlassCard className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -119,7 +181,7 @@ export default function ChatPage() {
             <div className="h-full flex flex-col items-center justify-center text-center px-2">
               <div className="w-14 h-14 rounded-[16px] grid place-items-center bg-[#0A84FF] text-white mb-5"><Wrench size={28} /></div>
               <div className="font-display text-2xl font-semibold">Настрою всё за вас</div>
-              <p className="txt-2 text-sm mt-2 max-w-md">Расскажите, как у вас на работе: праздники, короткие дни, ставки 125/150/200%, отпуска, бонусы. Я сам внесу настройки и записи.</p>
+              <p className="txt-2 text-sm mt-2 max-w-md">Расскажите текстом или голосом, как у вас на работе: праздники, короткие дни, ставки 125/150/200%, отпуска, бонусы. Я сам внесу настройки и записи. Переписка не сохраняется.</p>
               <div className="grid sm:grid-cols-2 gap-2 mt-6 w-full max-w-2xl">
                 {SUGGESTIONS.map((s, i) => (
                   <button key={s} onClick={() => send(s)} className="text-left text-sm rounded-2xl bg-soft border hair px-4 py-3 hover:border-[#0A84FF] hover:-translate-y-0.5 transition-all" data-testid={`chat-suggestion-${i}`}>{s}</button>
@@ -137,10 +199,11 @@ export default function ChatPage() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-              placeholder="Например: 25 декабря работаем полдня…"
+              placeholder="Напишите или скажите голосом…"
               className="flex-1 bg-transparent outline-none resize-none py-2.5 text-[15px] max-h-32"
               data-testid="chat-input"
             />
+            <VoiceButton onText={(t) => send(t)} disabled={busy} />
             <button onClick={() => send()} disabled={busy || !text.trim()} className="w-10 h-10 shrink-0 rounded-full bg-[#0A84FF] text-white grid place-items-center disabled:opacity-40 active:scale-90 transition-transform" data-testid="chat-send-button"><ArrowUp size={18} strokeWidth={2.6} /></button>
           </div>
         </div>

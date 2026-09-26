@@ -2,10 +2,9 @@ import os
 import json
 import uuid
 import logging
-from datetime import datetime, timezone, date as Date
+from datetime import date as Date
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, ToolCallStart, ToolCallReady, StreamDone
 import services as svc
-from core import db
 
 logger = logging.getLogger(__name__)
 WEEKDAYS_RU = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
@@ -24,7 +23,7 @@ SEG = {"type": "array", "description": "Отрезки времени. rate — 
 TOOLS = [
     fn("get_settings", "Текущие настройки: ставка, норма, коэффициенты, категории дней, налоги.", {}),
     fn("update_settings", "Частично обновить настройки (только изменяемые ключи).", {"patch": {"type": "object", "description":
-       "Ключи: hourly_rate, daily_norm_hours, work_days (массив 0=вс..6=сб), ot1_hours, ot1_rate, ot2_rate, special_ot_rate, break_minutes_default, travel_per_day, monthly_goal_hours, monthly_goal_income, tax_enabled, credit_points, credit_point_value, pension_pct, study_fund_pct, auto_holidays, show_optional_holidays, auto_paid_holidays"}}, ["patch"]),
+       "Ключи: hourly_rate, daily_norm_hours, work_days (массив 0=вс..6=сб), ot1_hours, ot1_rate, ot2_rate, special_ot_rate, break_minutes_default, travel_per_day, monthly_goal_hours, monthly_goal_income, tax_enabled, credit_points, credit_point_value, pension_pct, study_fund_pct, auto_holidays, show_optional_holidays, auto_paid_holidays, sick_law_il (больничный по закону Израиля: 1-й день 0%, 2–3 — 50%, с 4-го 100%), reminders_enabled, reminder_start_time (HH:MM), reminder_end_time (HH:MM), timezone"}}, ["patch"]),
     fn("upsert_day_type", "Создать или изменить категорию дня.", {
         "key": {"type": "string", "description": "латинский ключ, напр. short_day"}, "name": {"type": "string"},
         "color": {"type": "string", "description": "#RRGGBB"},
@@ -117,18 +116,11 @@ async def dispatch(uid, name, a):
         return {"error": detail}
 
 
-async def history(uid, limit=40):
-    cur = db.chat_messages.find({"user_id": uid}, {"_id": 0, "user_id": 0}).sort("created_at", -1).limit(limit)
-    return list(reversed([m async for m in cur]))
-
-
-async def stream_chat(uid, text, today):
-    past = [m for m in await history(uid, 16) if m.get("content")]
+async def stream_chat(uid, text, today, past):
+    past = [m for m in past if m.get("content") and m.get("role") in ("user", "assistant")][-16:]
     while past and past[0]["role"] != "user":
         past.pop(0)
     initial = [{"role": "system", "content": system_prompt(today)}] + [{"role": m["role"], "content": m["content"]} for m in past]
-    await db.chat_messages.insert_one({"user_id": uid, "role": "user", "content": text, "tools": [],
-                                       "created_at": datetime.now(timezone.utc).isoformat()})
     chat = (LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"{uid}-{uuid.uuid4()}",
                     system_message=system_prompt(today), initial_messages=initial)
             .with_model("anthropic", "claude-sonnet-4-6")
@@ -163,6 +155,4 @@ async def stream_chat(uid, text, today):
     except Exception as ex:
         logger.exception("chat error")
         yield {"type": "error", "content": f"Ошибка ассистента: {ex}"}
-    await db.chat_messages.insert_one({"user_id": uid, "role": "assistant", "content": full.strip(), "tools": used,
-                                       "created_at": datetime.now(timezone.utc).isoformat()})
     yield {"type": "done", "changed": changed, "tools": used}

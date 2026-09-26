@@ -11,8 +11,15 @@ from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, Respons
 from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, Field
+import io
+import hmac
 import services as svc
-from assistant import stream_chat, history
+from assistant import stream_chat
+from reports import build_pdf, build_xlsx
+from push import save_subscription, remove_subscription, send_push, run_reminders
+from fastapi import UploadFile, File, BackgroundTasks
+from pymongo.errors import DuplicateKeyError
+from emergentintegrations.llm.openai import OpenAISpeechToText
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -63,9 +70,24 @@ class BulkIn(BaseModel):
     comment: str = ""
 
 
+class ChatTurn(BaseModel):
+    role: str
+    content: str = ""
+
+
 class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     today: str
+    history: list[ChatTurn] = Field(default_factory=list, max_length=40)
+
+
+class PushSubIn(BaseModel):
+    endpoint: str
+    keys: dict
+
+
+class EndpointIn(BaseModel):
+    endpoint: str
 
 
 def auth_payload(response: Response, user: User):
@@ -230,25 +252,92 @@ async def stats_year(year: int, today: Optional[str] = None, user: User = Depend
     return await svc.get_year_stats(user.id, year, today)
 
 
-# ---------- chat ----------
-@api.get("/chat/history")
-async def chat_history(user: User = Depends(current_user)):
-    return await history(user.id, 100)
-
-
-@api.delete("/chat/history")
-async def chat_clear(user: User = Depends(current_user)):
-    await db.chat_messages.delete_many({"user_id": user.id})
-    return {"ok": True}
-
-
+# ---------- chat (sessions are not stored on the server) ----------
 @api.post("/chat/stream")
 async def chat_stream(body: ChatIn, user: User = Depends(current_user)):
+    past = [t.model_dump() for t in body.history]
+
     async def gen():
-        async for ev in stream_chat(user.id, body.message, body.today):
+        async for ev in stream_chat(user.id, body.message, body.today, past):
             yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@api.post("/chat/transcribe")
+async def transcribe(file: UploadFile = File(...), user: User = Depends(current_user)):
+    data = await file.read()
+    if len(data) < 500:
+        raise HTTPException(status_code=400, detail="Запись слишком короткая")
+    if len(data) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Запись слишком длинная")
+    buf = io.BytesIO(data)
+    buf.name = file.filename or "voice.webm"
+    stt = OpenAISpeechToText(api_key=os.environ["EMERGENT_LLM_KEY"])
+    try:
+        r = await stt.transcribe(file=buf, model="whisper-1", response_format="json", language="ru",
+                                 prompt="Учёт рабочего времени: смена, праздник, канун, отпуск, больничный, сверхурочные, 125%, 150%, шекели.")
+    except Exception as ex:
+        logger.exception("transcribe failed")
+        raise HTTPException(status_code=502, detail=f"Не удалось распознать речь: {ex}")
+    return {"text": (r.text or "").strip()}
+
+
+# ---------- reports ----------
+@api.get("/reports/month")
+async def report_month(month: str, format: str = "pdf", today: Optional[str] = None, user: User = Depends(current_user)):
+    stats = await svc.get_month_stats(user.id, month, today)
+    s = await svc.get_settings(user.id)
+    if format == "xlsx":
+        content, media = build_xlsx(stats, s, user), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        content, media, format = build_pdf(stats, s, user), "application/pdf", "pdf"
+    return Response(content, media_type=media,
+                    headers={"Content-Disposition": f'attachment; filename="smena-{month}.{format}"'})
+
+
+# ---------- push reminders ----------
+@api.get("/push/key")
+async def push_key(user: User = Depends(current_user)):
+    return {"key": os.environ["VAPID_PUBLIC_KEY"]}
+
+
+@api.post("/push/subscribe")
+async def push_subscribe(body: PushSubIn, user: User = Depends(current_user)):
+    await save_subscription(user.id, body.model_dump())
+    return {"ok": True}
+
+
+@api.post("/push/unsubscribe")
+async def push_unsubscribe(body: EndpointIn, user: User = Depends(current_user)):
+    await remove_subscription(user.id, body.endpoint)
+    return {"ok": True}
+
+
+@api.post("/push/test")
+async def push_test(user: User = Depends(current_user)):
+    return {"sent": await send_push(user.id, "Смена", "Уведомления работают — напомню о начале и конце смены.")}
+
+
+@api.post("/cron/reminders")
+async def cron_reminders(request: Request, background: BackgroundTasks):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer ") or not hmac.compare_digest(auth[7:], os.environ["WEBHOOK_CRON_SECRET"]):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    raw = await request.body()
+    try:
+        env = json.loads(raw) if raw else {}
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid body")
+    run_id = request.headers.get("X-Webhook-Id") or (env.get("run_id") if isinstance(env, dict) else None)
+    if run_id:
+        try:
+            await db.cron_runs.insert_one({"_id": run_id, "at": datetime.now(timezone.utc)})
+        except DuplicateKeyError:
+            return {"ok": True, "duplicate": True}
+    background.add_task(run_reminders)
+    return {"ok": True}
 
 
 app.include_router(api)
@@ -278,7 +367,10 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.entries.create_index([("user_id", 1), ("date", 1)], unique=True)
     await db.holidays.create_index([("user_id", 1), ("date", 1)], unique=True)
-    await db.chat_messages.create_index([("user_id", 1), ("created_at", -1)])
+    await db.chat_messages.drop()
+    await db.push_subs.create_index("endpoint", unique=True)
+    await db.reminder_log.create_index([("user_id", 1), ("date", 1), ("kind", 1)], unique=True)
+    await db.cron_runs.create_index("at", expireAfterSeconds=86400 * 3)
     await db.login_attempts.create_index("identifier")
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
     await seed_user(os.environ["ADMIN_EMAIL"], os.environ["ADMIN_PASSWORD"], "Владелец", "admin")
