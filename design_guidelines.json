@@ -1,0 +1,190 @@
+{
+  "project_name": "Apple-Style Work Shift & Activity Rings System (Israel Context)",
+  "version": "1.0.0",
+  "theme": {
+    "supported_modes": ["light", "dark"],
+    "default_mode": "dark",
+    "toggle_behavior": "Smooth state transition with persistent local storage and CSS root class toggle"
+  },
+  "typography": {
+    "headings": {
+      "font_family": "Outfit, SF Pro Display, system-ui, sans-serif",
+      "weights": {
+        "h1": "font-bold text-3xl sm:text-4xl md:text-5xl tracking-tight",
+        "h2": "font-semibold text-2xl sm:text-3xl tracking-tight",
+        "h3": "font-semibold text-xl sm:text-2xl",
+        "h4": "font-medium text-lg sm:text-xl"
+      }
+    },
+    "body": {
+      "font_family": "SF Pro Text, Manrope, -apple-system, sans-serif",
+      "sizes": {
+        "large": "text-lg leading-relaxed",
+        "normal": "text-base leading-normal",
+        "small": "text-sm text-muted-foreground",
+        "tiny": "text-xs tracking-wider uppercase font-medium"
+      }
+    },
+    "monospace_timer_and_currency": {
+      "font_family": "JetBrains Mono, SF Mono, monospace",
+      "usage": "Live timer countdown, salary numbers in ₪ (ILS), rate percentage badges (100%, 125%, 150%, 200%)"
+    },
+    "forbidden_fonts_for_headings": ["Inter", "Roboto", "Space Grotesk"]
+  },
+  "colors": {
+    "archetype": "Apple Liquid Glass & Dynamic Activity Rings",
+    "light_mode": {
+      "background": "#F5F5F7",
+      "surface_glass": "rgba(255, 255, 255, 0.70)",
+      "surface_glass_hover": "rgba(255, 255, 255, 0.85)",
+      "border": "rgba(255, 255, 255, 0.60)",
+      "text_primary": "#1D1D1F",
+      "text_secondary": "#86868B"
+    },
+    "dark_mode": {
+      "background": "#0B0C10",
+      "surface_glass": "rgba(22, 24, 34, 0.65)",
+      "surface_glass_hover": "rgba(30, 33, 48, 0.75)",
+      "border": "rgba(255, 255, 255, 0.12)",
+      "text_primary": "#F5F5F7",
+      "text_secondary": "#98989D"
+    },
+    "activity_rings": {
+      "ring_1_hours": {
+        "label": "Часы (Hours)",
+        "gradient_start": "#FF2D55",
+        "gradient_end": "#FF9500",
+        "glow": "rgba(255, 45, 85, 0.4)"
+      },
+      "ring_2_overtime": {
+        "label": "Сверхурочные (Overtime)",
+        "gradient_start": "#30D158",
+        "gradient_end": "#63E6E2",
+        "glow": "rgba(48, 209, 88, 0.4)"
+      },
+      "ring_3_earnings": {
+        "label": "Заработок ₪ (Earnings)",
+        "gradient_start": "#0A84FF",
+        "gradient_end": "#5E5CE6",
+        "glow": "rgba(10, 132, 255, 0.4)"
+      },
+      "ring_4_target": {
+        "label": "Цель месяца (Goal)",
+        "gradient_start": "#BF5AF2",
+        "gradient_end": "#FF375F",
+        "glow": "rgba(191, 90, 242, 0.4)"
+      }
+    },
+    "day_categories_israel": {
+      "work_day": {
+        "label": "Рабочий день",
+        "color": "#30D158",
+        "bg_glass": "rgba(48, 209, 88, 0.15)",
+        "border": "rgba(48, 209, 88, 0.3)"
+      },
+      "holiday": {
+        "label": "Праздник (150-200%)",
+        "color": "#FF9500",
+        "bg_glass": "rgba(255, 149, 0, 0.15)",
+        "border": "rgba(255, 149, 0, 0.3)"
+      },
+      "half_holiday": {
+        "label": "Предпраздничный день",
+        "color": "#FFCC00",
+        "bg_glass": "rgba(255, 204, 0, 0.15)",
+        "border": "rgba(255, 204, 0, 0.3)"
+      },
+      "vacation": {
+        "label": "Оплачиваемый отпуск",
+        "color": "#0A84FF",
+        "bg_glass": "rgba(10, 132, 255, 0.15)",
+        "border": "rgba(10, 132, 255, 0.3)"
+      },
+      "sick_leave": {
+        "label": "Больничный (Дмей Махала)",
+        "color": "#BF5AF2",
+        "bg_glass": "rgba(191, 90, 242, 0.15)",
+        "border": "rgba(191, 90, 242, 0.3)"
+      },
+      "unpaid_leave": {
+        "label": "За свой счет (Халат)",
+        "color": "#FF453A",
+        "bg_glass": "rgba(255, 69, 58, 0.15)",
+        "border": "rgba(255, 69, 58, 0.3)"
+      },
+      "absence": {
+        "label": "Выходной / Прогул",
+        "color": "#8E8E93",
+        "bg_glass": "rgba(142, 142, 147, 0.15)",
+        "border": "rgba(142, 142, 147, 0.3)"
+      }
+    },
+    "rate_multiplier_badges": {
+      "rate_100": { "text": "100%", "bg": "bg-blue-500/15 text-blue-400 border-blue-500/30" },
+      "rate_125": { "text": "125%", "bg": "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+      "rate_150": { "text": "150%", "bg": "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+      "rate_200": { "text": "200%", "bg": "bg-purple-500/15 text-purple-400 border-purple-500/30" }
+    }
+  },
+  "visual_enhancers": {
+    "apple_glassmorphism": {
+      "class_name": "backdrop-blur-xl bg-white/70 dark:bg-slate-900/60 border border-white/40 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.12)]",
+      "card_radius": "rounded-2xl sm:rounded-3xl",
+      "inner_sheen": "bg-gradient-to-b from-white/20 via-transparent to-transparent pointer-events-none"
+    },
+    "activity_rings_orbs": {
+      "svg_container": "relative flex items-center justify-center p-4",
+      "glow_effect": "filter drop-shadow-[0_0_12px_rgba(255,45,85,0.35)]",
+      "stroke_linecap": "round",
+      "animation_duration": "1.2s ease-out"
+    },
+    "interactive_timer": {
+      "pulse_ring": "animate-pulse shadow-[0_0_30px_rgba(48,209,88,0.3)]",
+      "button_glow": "bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-bold shadow-lg shadow-emerald-500/25 active:scale-95 transition-all"
+    }
+  },
+  "grids_and_layouts": {
+    "hybrid_navigation": {
+      "desktop": "Sidebar layout: `w-64 fixed left-0 top-0 h-screen border-r border-border backdrop-blur-2xl z-40 hidden md:flex flex-col`",
+      "mobile": "Bottom Tab Bar layout: `fixed bottom-0 left-0 right-0 h-16 backdrop-blur-2xl border-t border-border z-50 flex md:hidden items-center justify-around px-2`",
+      "main_container": "md:pl-64 pb-20 md:pb-8 pt-4 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto min-h-screen"
+    },
+    "bento_dashboard_grid": {
+      "layout": "grid grid-cols-1 md:grid-cols-12 gap-6",
+      "hero_timer_card": "col-span-full md:col-span-7 lg:col-span-8",
+      "rings_summary_card": "col-span-full md:col-span-5 lg:col-span-4",
+      "quick_calendar_preview": "col-span-full md:col-span-6 lg:col-span-7",
+      "ai_assistant_teaser": "col-span-full md:col-span-6 lg:col-span-5"
+    }
+  },
+  "component_specifications": {
+    "TimerRingCard.jsx": "Interactive central work timer widget with live ticking seconds, live Shekel income counter based on current rate multiplier (100%/125%/150%/200%), start/pause/stop buttons, break timer, and manual override dialog.",
+    "ActivityRingsWidget.jsx": "4 concentric animated SVG rings representing Daily Hours, Overtime, Earnings ₪, and Monthly Target. Interactive hover tooltips showing exact percentages and totals.",
+    "InteractiveCalendar.jsx": "Full monthly calendar supporting Israeli work weeks (Sunday - Thursday / Friday half-day). Custom colored day pills for Work, Holiday, Half-Day, Vacation, Sick, and Unpaid Leave.",
+    "ShiftLogEditorModal.jsx": "Modal to log or edit work shifts with exact segments: 100% standard hours (first 8/8.4h), 125% (next 2 hours), 150% (beyond 10h), 200% (Shabbat/Holidays), travel allowance (נסיעות), meal bonus, and custom notes.",
+    "AnalyticsDashboard.jsx": "Detailed charts (Recharts) for Gross vs Net salary estimation using Israeli Credit Points (נקודות זיכוי), income tax tiers, Bituah Leumi / Health Tax deduction estimates, breakdown of overtime income, and monthly projections.",
+    "AIChatAssistant.jsx": "Claude-inspired natural language chat assistant ('ShiftBot') capable of configuring Israeli holidays, custom work hours, rate rules, auto-fill absences, and providing breakdown summaries in Russian.",
+    "SettingsPanel.jsx": "Complete customization suite: Base hourly rate (₪/hr), overtime threshold hours (8h / 8.4h / 9h), custom holiday manager, Israeli tax credit points slider (default 2.25 for men, 2.75 for women), and dark/light theme switch."
+  },
+  "media": {
+    "image_urls": {
+      "user_avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "hero_background_abstract": "https://images.unsplash.com/photo-1618177948067-7ba10668b77d?crop=entropy&cs=srgb&fm=jpg&q=85"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Use JavaScript (.js and .jsx files) as specified by the project stack.",
+    "Implement the UI in Russian as requested by the user choices.",
+    "Ensure full responsiveness: Mobile view uses a sleek floating bottom tab bar with 4-5 tabs (Дашборд, Календарь, Статистика, ИИ Чат, Настройки) while Desktop view uses a floating Apple-glass sidebar.",
+    "ALL interactive elements (buttons, inputs, tabs, modal triggers, timer controls, calendar cells, chat inputs) MUST contain a role-based data-testid attribute in kebab-case (e.g., data-testid='start-work-button', data-testid='theme-toggle-button', data-testid='shift-rate-selector').",
+    "Include both Light and Dark theme options using Tailwind dark: modifier classes and root theme toggle state.",
+    "Implement accurate Israeli work law defaults: ₪ Shekel currency, Sunday-to-Thursday standard week, 125% for first 2 overtime hours, 150% for subsequent hours, 200% for Shabbat/Holidays, and Credit Points (נקודות זיכוי) tax estimation.",
+    "Never use generic centered layouts or plain flat borders without glassmorphism/blur depth.",
+    "Use sonner for toast feedback (shift started, shift ended, AI configuration saved, settings updated)."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": {
+    "anti_ai_slop": "Avoid generic SaaS blue templates. Use high-contrast Apple glassmorphism, concentric SVG Activity Rings, vibrant indicator glows, and smooth spring-like micro-animations.",
+    "accessibility_and_contrast": "Ensure all text on translucent glass surfaces maintains high contrast against background elements (minimum 4.5:1 ratio).",
+    "testing_readiness": "Every clickable, toggleable, or display element MUST have `data-testid` attributes."
+  }
+}
