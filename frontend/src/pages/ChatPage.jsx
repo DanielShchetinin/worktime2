@@ -229,7 +229,7 @@ export default function ChatPage() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-              placeholder="Напишите или скажите голосом…"
+              placeholder="Напишите или скажите…"
               className="flex-1 bg-transparent outline-none resize-none py-2.5 text-[15px] max-h-32"
               data-testid="chat-input"
             />

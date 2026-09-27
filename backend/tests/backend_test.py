@@ -464,3 +464,104 @@ class TestDemo:
             if r.json()["totals"]["gross"] > 0:
                 return
         pytest.fail("demo user had no gross across recent months")
+
+
+# --------- iteration 4: payslip scan (Gemini vision) ---------
+class TestPayslipScan:
+    def test_scan_wrong_content_type(self, auth_headers):
+        files = {"file": ("bad.txt", b"not an image", "text/plain")}
+        r = requests.post(f"{API}/payslips/scan", headers=auth_headers, files=files)
+        assert r.status_code == 400, r.text
+
+    def test_scan_empty_file(self, auth_headers):
+        files = {"file": ("empty.jpg", b"", "image/jpeg")}
+        r = requests.post(f"{API}/payslips/scan", headers=auth_headers, files=files)
+        assert r.status_code == 400, r.text
+
+    def test_scan_no_auth(self):
+        files = {"file": ("x.jpg", b"x", "image/jpeg")}
+        r = requests.post(f"{API}/payslips/scan", files=files)
+        assert r.status_code == 401
+
+    def test_scan_real_payslip(self, auth_headers):
+        """Uses /tmp/payslip.jpg -- real Gemini call. Expected gross 9850, net 8194, social ~655, month 2026-08."""
+        with open("/tmp/payslip.jpg", "rb") as f:
+            files = {"file": ("payslip.jpg", f.read(), "image/jpeg")}
+        r = requests.post(f"{API}/payslips/scan", headers=auth_headers, files=files, timeout=60)
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert set(d.keys()) >= {"month", "gross", "net", "hours", "income_tax", "social", "pension"}
+        # Tolerate small vision variations
+        assert d["gross"] is not None and abs(d["gross"] - 9850) < 20, d
+        assert d["net"] is not None and abs(d["net"] - 8194) < 20, d
+        # social = NI 380 + health 275 = 655
+        if d["social"] is not None:
+            assert abs(d["social"] - 655) < 30, d
+        assert d["month"] == "2026-08", d
+
+
+# --------- iteration 4: payslip year summary ---------
+class TestPayslipSummary:
+    def test_summary_no_auth(self):
+        r = requests.get(f"{API}/payslips/summary?year=2026")
+        assert r.status_code == 401
+
+    def test_summary_demo(self, demo_headers):
+        r = requests.get(f"{API}/payslips/summary?year=2026", headers=demo_headers)
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["year"] == 2026
+        assert "months" in d and isinstance(d["months"], list)
+        assert "totals" in d
+        for k in ("under", "over", "match"):
+            assert k in d and isinstance(d[k], int)
+        # demo has 2026-09 payslip preseeded
+        assert any(m["month"] == "2026-09" for m in d["months"]), d["months"]
+        assert "gross" in d["totals"] and "net" in d["totals"]
+        assert "diff" in d["totals"]["gross"]
+
+    def test_summary_empty_year(self, auth_headers):
+        r = requests.get(f"{API}/payslips/summary?year=2019", headers=auth_headers)
+        assert r.status_code == 200
+        d = r.json()
+        assert d["months"] == []
+        assert d["under"] == 0 and d["over"] == 0 and d["match"] == 0
+
+
+# --------- iteration 4: chat/apply (mutating tools allowed list) ---------
+class TestChatApply:
+    def test_apply_disallowed_tool(self, auth_headers):
+        r = requests.post(f"{API}/chat/apply", headers=auth_headers,
+                          json={"actions": [{"tool": "get_settings", "args": {}}]})
+        assert r.status_code == 200, r.text
+        res = r.json()["results"]
+        assert len(res) == 1 and res[0]["ok"] is False
+        assert res[0].get("error")
+
+    def test_apply_update_settings_and_revert(self, auth_headers):
+        # baseline
+        before = requests.get(f"{API}/settings", headers=auth_headers).json()["hourly_rate"]
+        try:
+            r = requests.post(f"{API}/chat/apply", headers=auth_headers,
+                              json={"actions": [{"tool": "update_settings", "args": {"patch": {"hourly_rate": 71}}}]})
+            assert r.status_code == 200, r.text
+            res = r.json()["results"]
+            assert res[0]["ok"] is True, res
+            got = requests.get(f"{API}/settings", headers=auth_headers).json()["hourly_rate"]
+            assert got == 71
+        finally:
+            requests.put(f"{API}/settings", headers=auth_headers, json={"hourly_rate": before})
+
+    def test_apply_set_holiday_and_remove(self, auth_headers):
+        target = "2026-12-25"
+        try:
+            r = requests.post(f"{API}/chat/apply", headers=auth_headers,
+                              json={"actions": [{"tool": "set_holiday", "args":
+                                    {"date": target, "name": "TEST_apply_holiday", "kind": "custom", "day_off": True}}]})
+            assert r.status_code == 200
+            assert r.json()["results"][0]["ok"] is True
+            hols = requests.get(f"{API}/holidays?year=2026", headers=auth_headers).json()
+            assert any(h.get("date") == target and "TEST_apply_holiday" in h.get("name", "") for h in hols), hols[:5]
+        finally:
+            requests.post(f"{API}/chat/apply", headers=auth_headers,
+                          json={"actions": [{"tool": "remove_holiday", "args": {"date": target}}]})
