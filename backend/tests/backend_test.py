@@ -399,6 +399,61 @@ class TestPWA:
         assert "manifest.json" in r.text
 
 
+# --------- iteration 3: payslips ---------
+class TestPayslips:
+    def test_put_get_delete_payslip(self, auth_headers):
+        month = "2026-07"
+        # PUT with full body
+        body = {"gross": 9000, "net": 7600, "hours": 180, "income_tax": 350, "social": 600, "pension": 540, "comment": "TEST_payslip"}
+        r = requests.put(f"{API}/payslips/{month}", headers=auth_headers, json=body)
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["gross"] == 9000
+        assert d["net"] == 7600
+        assert d["month"] == month
+        # GET list
+        r2 = requests.get(f"{API}/payslips?year=2026", headers=auth_headers)
+        assert r2.status_code == 200
+        arr = r2.json()
+        assert any(p["month"] == month and p["gross"] == 9000 for p in arr)
+        # DELETE
+        r3 = requests.delete(f"{API}/payslips/{month}", headers=auth_headers)
+        assert r3.status_code == 200
+        # verify removed
+        r4 = requests.get(f"{API}/payslips?year=2026", headers=auth_headers)
+        assert not any(p["month"] == month for p in r4.json())
+
+    def test_payslip_invalid_month(self, auth_headers):
+        r = requests.put(f"{API}/payslips/2026-13", headers=auth_headers, json={"gross": 1000})
+        assert r.status_code == 400, r.text
+
+    def test_payslip_missing_gross(self, auth_headers):
+        r = requests.put(f"{API}/payslips/2026-08", headers=auth_headers, json={"net": 100})
+        assert r.status_code == 422, r.text
+
+    def test_payslip_gross_only(self, auth_headers):
+        month = "2026-08"
+        r = requests.put(f"{API}/payslips/{month}", headers=auth_headers, json={"gross": 5000})
+        assert r.status_code == 200
+        d = r.json()
+        assert d["gross"] == 5000
+        assert d["net"] is None
+        # cleanup
+        requests.delete(f"{API}/payslips/{month}", headers=auth_headers)
+
+    def test_payslip_no_auth(self):
+        r = requests.get(f"{API}/payslips?year=2026")
+        assert r.status_code == 401
+
+    def test_report_pdf_with_payslip(self, demo_headers):
+        # demo has 2026-09 payslip preseeded
+        r = requests.get(f"{API}/reports/month?month=2026-09&format=pdf", headers=demo_headers)
+        assert r.status_code == 200
+        assert r.content[:4] == b"%PDF"
+        # Larger content likely because cmp section included
+        assert len(r.content) > 2000
+
+
 # --------- demo seeded data smoke ---------
 class TestDemo:
     def test_demo_has_month_data(self, demo_headers):

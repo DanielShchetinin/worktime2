@@ -25,7 +25,7 @@
 - Статистика месяц/год: KPI, часы по ставкам, доход по ставкам, брутто→нетто (налог, Битуах Леуми, пенсия), список месяцев с отклонением от нормы
 - ИИ-ассистент (Claude) меняет настройки/праздники/записи
 - iOS-style redesign (system font, flat cards, translucent bars)
-- Iteration 3: monthly report PDF + Excel; PWA (manifest, icons, service worker, iPhone home screen); shift reminders (web push VAPID + cron */15 `/api/cron/reminders` + in-app banners); Israeli sick law (1st day 0%, 2–3 50%, 4+ 100%, toggle); voice input to assistant (whisper-1); chat sessions are no longer stored on server (sessionStorage only, «Новый чат»)
+- Iteration 4: payslip comparison («Сверка с зарплатой»: ручной ввод тлуша, сравнение расчёт/факт, в годовом списке, в PDF/Excel, AI-tools set_payslip/compare_payslip); mobile nav redesigned as floating liquid-glass capsule tab bar + round assistant button PDF + Excel; PWA (manifest, icons, service worker, iPhone home screen); shift reminders (web push VAPID + cron */15 `/api/cron/reminders` + in-app banners); Israeli sick law (1st day 0%, 2–3 50%, 4+ 100%, toggle); voice input to assistant (whisper-1); chat sessions are no longer stored on server (sessionStorage only, «Новый чат»)
 
 ## Backlog
 - P1: несколько работодателей/проектов
