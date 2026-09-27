@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowUp, Sparkles, SquarePen, Wrench, Check, Mic, Square, Loader2 } from "lucide-react";
@@ -8,6 +9,7 @@ import { streamChat, transcribe, apiError } from "@/lib/api";
 import { useRefreshAll } from "@/hooks/useData";
 import { todayISO } from "@/lib/format";
 import { GlassCard, Label } from "@/components/Glass";
+import { ProposalCard } from "@/components/ProposalCard";
 
 const SESSION_KEY = "smena_chat_session";
 
@@ -98,20 +100,42 @@ const ToolChips = ({ tools }) =>
     </div>
   ) : null;
 
-const Bubble = ({ m, i }) =>
+const MD = {
+  ul: ({ children }) => <ul className="!list-none !pl-0 space-y-1.5 my-2">{children}</ul>,
+  ol: ({ children }) => <ul className="!list-none !pl-0 space-y-1.5 my-2">{children}</ul>,
+  li: ({ children }) => <li className="flex gap-2.5"><span className="mt-[8px] w-1.5 h-1.5 rounded-full bg-[#0A84FF] shrink-0" /><span className="min-w-0">{children}</span></li>,
+  code: ({ children }) => <span className="font-semibold">{children}</span>,
+  pre: ({ children }) => <>{children}</>,
+  h1: ({ children }) => <p className="font-semibold">{children}</p>,
+  h2: ({ children }) => <p className="font-semibold">{children}</p>,
+  h3: ({ children }) => <p className="font-semibold">{children}</p>,
+};
+
+const Typing = () => (
+  <div className="inline-flex gap-1.5 rounded-[20px] rounded-tl-md px-4 py-3.5 bg-[#E9E9EB] dark:bg-[#26262A]" data-testid="chat-typing">
+    {[0, 1, 2].map((d) => (
+      <motion.span key={d} className="w-2 h-2 rounded-full bg-current opacity-60" animate={{ y: [0, -5, 0], opacity: [0.35, 0.9, 0.35] }} transition={{ duration: 0.9, repeat: Infinity, delay: d * 0.15 }} />
+    ))}
+  </div>
+);
+
+const pop = { initial: { opacity: 0, y: 12, scale: 0.97 }, animate: { opacity: 1, y: 0, scale: 1 }, transition: { type: "spring", stiffness: 380, damping: 28 } };
+
+const Bubble = ({ m, i, onResolve }) =>
   m.role === "user" ? (
-    <div className="flex justify-end fade-up" data-testid={`chat-message-user-${i}`}>
+    <motion.div {...pop} className="flex justify-end" style={{ transformOrigin: "bottom right" }} data-testid={`chat-message-user-${i}`}>
       <div className="max-w-[85%] rounded-[20px] rounded-br-md px-4 py-2.5 bg-[#0A84FF] text-white text-[15px] whitespace-pre-wrap">{m.content}</div>
-    </div>
+    </motion.div>
   ) : (
-    <div className="flex gap-3 fade-up" data-testid={`chat-message-assistant-${i}`}>
-      <div className="w-8 h-8 rounded-full shrink-0 grid place-items-center bg-[#0A84FF] text-white"><Sparkles size={15} /></div>
-      <div className="max-w-[85%] min-w-0">
+    <motion.div {...pop} className="flex gap-3" style={{ transformOrigin: "bottom left" }} data-testid={`chat-message-assistant-${i}`}>
+      <motion.div className="w-8 h-8 rounded-full shrink-0 grid place-items-center bg-[#0A84FF] text-white" animate={m.live ? { rotate: [0, 12, -12, 0] } : { rotate: 0 }} transition={{ duration: 1.6, repeat: m.live ? Infinity : 0 }}><Sparkles size={15} /></motion.div>
+      <div className="max-w-[88%] min-w-0 flex-1">
         <ToolChips tools={m.tools} />
-        {m.live && !m.content && <div className="flex gap-1 py-3">{[0, 1, 2].map((d) => <span key={d} className="w-2 h-2 rounded-full bg-current opacity-50 animate-bounce" style={{ animationDelay: `${d * 120}ms` }} />)}</div>}
-        {m.content && <div className="rounded-[20px] rounded-tl-md px-4 py-2.5 text-[15px] md bg-[#E9E9EB] dark:bg-[#26262A]"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}
+        {m.live && !m.content && <Typing />}
+        {m.content && <div className="inline-block rounded-[20px] rounded-tl-md px-4 py-2.5 text-[15px] leading-relaxed md bg-[#E9E9EB] dark:bg-[#26262A]"><ReactMarkdown remarkPlugins={[remarkGfm]} components={MD}>{m.content}</ReactMarkdown></div>}
+        {m.proposal && <ProposalCard proposal={m.proposal} onResolve={(status, actions) => onResolve(i, status, actions)} />}
       </div>
-    </div>
+    </motion.div>
   );
 
 export default function ChatPage() {
@@ -131,7 +155,8 @@ export default function ChatPage() {
   const send = async (raw) => {
     const content = (raw ?? text).trim();
     if (!content || busy) return;
-    const history = msgs.filter((m) => m.content).map((m) => ({ role: m.role, content: m.content }));
+    const note = { applied: "\n\n[Пользователь проверил и применил предложенные изменения]", cancelled: "\n\n[Пользователь отменил предложенные изменения]" };
+    const history = msgs.filter((m) => m.content || m.proposal).map((m) => ({ role: m.role, content: (m.content || "Предложил изменения.") + (m.proposal?.status ? note[m.proposal.status] : "") }));
     setText("");
     setBusy(true);
     setMsgs((p) => [...p, { role: "user", content }, { role: "assistant", content: "", tools: [], live: true }]);
@@ -141,7 +166,7 @@ export default function ChatPage() {
         if (ev.type === "delta") patch((m) => ({ ...m, content: m.content + ev.content }));
         else if (ev.type === "tool") patch((m) => ({ ...m, tools: [...m.tools, ev.name] }));
         else if (ev.type === "error") toast.error(ev.content);
-        else if (ev.type === "done" && ev.changed) { refresh(); toast.success("Настройки применены"); }
+        else if (ev.type === "proposal") patch((m) => ({ ...m, proposal: { actions: ev.actions, status: null } }));
       });
     } catch (e) {
       toast.error(e.message);
@@ -159,6 +184,11 @@ export default function ChatPage() {
       send(q);
     }
   }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const resolveProposal = (idx, status, actions) => {
+    setMsgs((p) => p.map((m, j) => (j === idx ? { ...m, proposal: { actions, status } } : m)));
+    if (status === "applied") refresh();
+  };
 
   const newChat = () => {
     setMsgs([]);
@@ -184,12 +214,12 @@ export default function ChatPage() {
               <p className="txt-2 text-sm mt-2 max-w-md">Расскажите текстом или голосом, как у вас на работе: праздники, короткие дни, ставки 125/150/200%, отпуска, бонусы. Я сам внесу настройки и записи. Переписка не сохраняется.</p>
               <div className="grid sm:grid-cols-2 gap-2 mt-6 w-full max-w-2xl">
                 {SUGGESTIONS.map((s, i) => (
-                  <button key={s} onClick={() => send(s)} className="text-left text-sm rounded-2xl bg-soft border hair px-4 py-3 hover:border-[#0A84FF] hover:-translate-y-0.5 transition-all" data-testid={`chat-suggestion-${i}`}>{s}</button>
+                  <motion.button key={s} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i + 0.1 }} whileTap={{ scale: 0.97 }} onClick={() => send(s)} className="text-left text-sm rounded-2xl bg-soft border hair px-4 py-3 hover:border-[#0A84FF] transition-colors" data-testid={`chat-suggestion-${i}`}>{s}</motion.button>
                 ))}
               </div>
             </div>
           )}
-          {msgs.map((m, i) => <Bubble key={i} m={m} i={i} />)}
+          {msgs.map((m, i) => <Bubble key={i} m={m} i={i} onResolve={resolveProposal} />)}
           <div ref={endRef} />
         </div>
         <div className="p-3 sm:p-4 border-t hair">

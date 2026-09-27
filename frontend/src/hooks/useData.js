@@ -24,6 +24,9 @@ export const useHolidays = (year) =>
 export const usePayslips = (year) =>
   useQuery({ queryKey: ["payslips", year], queryFn: () => get("/payslips", { year }) });
 
+export const usePayslipSummary = (year) =>
+  useQuery({ queryKey: ["payslips", "summary", year], queryFn: () => get("/payslips/summary", { year }) });
+
 export const useRefreshAll = () => {
   const qc = useQueryClient();
   return () => qc.invalidateQueries();

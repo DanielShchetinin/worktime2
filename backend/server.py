@@ -14,8 +14,9 @@ from pydantic import BaseModel, EmailStr, Field
 import io
 import hmac
 import services as svc
-from assistant import stream_chat
+from assistant import stream_chat, apply_actions
 from reports import build_pdf, build_xlsx
+from scan import scan_payslip
 from push import save_subscription, remove_subscription, send_push, run_reminders
 from fastapi import UploadFile, File, BackgroundTasks
 from pymongo.errors import DuplicateKeyError
@@ -79,6 +80,10 @@ class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     today: str
     history: list[ChatTurn] = Field(default_factory=list, max_length=40)
+
+
+class ApplyIn(BaseModel):
+    actions: list[dict] = Field(min_length=1, max_length=30)
 
 
 class PushSubIn(BaseModel):
@@ -264,6 +269,11 @@ async def chat_stream(body: ChatIn, user: User = Depends(current_user)):
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+@api.post("/chat/apply")
+async def chat_apply(body: ApplyIn, user: User = Depends(current_user)):
+    return {"results": await apply_actions(user.id, body.actions)}
+
+
 @api.post("/chat/transcribe")
 async def transcribe(file: UploadFile = File(...), user: User = Depends(current_user)):
     data = await file.read()
@@ -284,6 +294,21 @@ async def transcribe(file: UploadFile = File(...), user: User = Depends(current_
 
 
 # ---------- payslips ----------
+@api.get("/payslips/summary")
+async def payslips_summary(year: int, user: User = Depends(current_user)):
+    return await svc.payslip_year_summary(user.id, year)
+
+
+@api.post("/payslips/scan")
+async def payslips_scan(file: UploadFile = File(...), user: User = Depends(current_user)):
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Пустой файл")
+    if len(data) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Файл больше 15 МБ")
+    return await scan_payslip(data, (file.content_type or "").lower())
+
+
 @api.get("/payslips")
 async def payslips(year: int, user: User = Depends(current_user)):
     return await svc.list_payslips(user.id, year)

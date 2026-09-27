@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { downloadReport, apiError } from "@/lib/api";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useMonthStats, useYearStats, useSettings, usePayslips, typeMap } from "@/hooks/useData";
-import { PayslipCard } from "@/components/PayslipCard";
+import { PayslipCard, PayslipYearSummary } from "@/components/PayslipCard";
 import { monthKey, shiftMonth, monthTitle, hrs, hrsShort, money, money2, rateColor, dateShort, MONTHS_SHORT, todayISO } from "@/lib/format";
 import { GlassCard, Label, Kpi, RateBadge, TypePill, Spinner } from "@/components/Glass";
 
@@ -183,6 +183,7 @@ const YearView = ({ year }) => {
         <Kpi label="Нетто за год" value={money(sum("net"))} icon={Wallet} color="#30D158" testId="year-kpi-net" />
       </div>
       <MonthsList rows={rows} year={year} slips={slips} />
+      <PayslipYearSummary year={year} />
       <GlassCard className="p-6">
         <Label className="mb-4">Доход по месяцам</Label>
         <div className="h-[300px]">

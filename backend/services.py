@@ -344,3 +344,27 @@ async def seed_demo(uid):
                           break_minutes=30)
             await save_entry(e)
         d += timedelta(days=1)
+
+
+async def payslip_year_summary(uid, year: int):
+    keys = ("gross", "net", "hours", "income_tax", "social", "pension")
+    totals = {k: {"calc": 0.0, "actual": 0.0, "diff": 0.0, "months": 0} for k in keys}
+    months, under, over, match = [], 0, 0, 0
+    for p in await list_payslips(uid, year):
+        rows = {r["key"]: r for r in compare_payslip(await get_month_stats(uid, p["month"]), p)}
+        for k, r in rows.items():
+            t = totals[k]
+            t["calc"] += r["calc"]
+            t["actual"] += r["actual"]
+            t["diff"] += r["diff"]
+            t["months"] += 1
+        main = rows.get("net") or rows.get("gross")
+        if abs(main["diff"]) < max(1, abs(main["calc"]) * 0.01):
+            match += 1
+        elif main["diff"] < 0:
+            under += 1
+        else:
+            over += 1
+        months.append({"month": p["month"], "gross": rows.get("gross"), "net": rows.get("net")})
+    totals = {k: {**v, **{x: round(v[x], 2) for x in ("calc", "actual", "diff")}} for k, v in totals.items() if v["months"]}
+    return {"year": year, "months": months, "totals": totals, "under": under, "over": over, "match": match}

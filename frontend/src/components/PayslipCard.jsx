@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Receipt, Pencil, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Receipt, Pencil, CheckCircle2, AlertTriangle, Camera, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { api, apiError } from "@/lib/api";
-import { usePayslips, useRefreshAll } from "@/hooks/useData";
-import { hrs, money2, monthTitle } from "@/lib/format";
+import { usePayslips, usePayslipSummary, useRefreshAll } from "@/hooks/useData";
+import { hrs, money2, monthTitle, MONTHS } from "@/lib/format";
 import { GlassCard, Label } from "@/components/Glass";
 
 const FIELDS = [
@@ -28,12 +28,48 @@ const Diff = ({ r }) => {
   return <span className={good ? "text-[#34C759]" : "text-[#FF3B30]"}>{r.diff > 0 ? "+" : "−"}{fmt(r.key, Math.abs(r.diff))}</span>;
 };
 
-const PayslipDialog = ({ open, onOpenChange, month, slip }) => {
+const ScanButton = ({ onResult, className = "", children, testId = "payslip-scan-button" }) => {
+  const [busy, setBusy] = useState(false);
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file, file.name);
+      const { data } = await api.post("/payslips/scan", fd);
+      onResult(data);
+      toast.success("Цифры распознаны — проверьте и сохраните");
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <label className={`cursor-pointer ${busy ? "pointer-events-none opacity-60" : ""} ${className}`} data-testid={testId}>
+      <input type="file" accept="image/*,application/pdf" className="hidden" onChange={onFile} data-testid={`${testId}-input`} />
+      {busy ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+      {busy ? "Распознаю…" : children}
+    </label>
+  );
+};
+
+const PayslipDialog = ({ open, onOpenChange, month, slip, prefill }) => {
   const refresh = useRefreshAll();
   const [f, setF] = useState({});
+  const [scannedMonth, setScannedMonth] = useState(null);
+  const apply = (data) => {
+    setF((p) => ({ ...p, ...Object.fromEntries(FIELDS.filter(([k]) => data[k] !== null && data[k] !== undefined).map(([k]) => [k, data[k]])) }));
+    setScannedMonth(data.month && data.month !== month ? data.month : null);
+  };
   useEffect(() => {
-    if (open) setF(Object.fromEntries([...FIELDS.map(([k]) => [k, slip?.[k] ?? ""]), ["comment", slip?.comment || ""]]));
-  }, [open, slip]);
+    if (!open) return;
+    setF(Object.fromEntries([...FIELDS.map(([k]) => [k, slip?.[k] ?? ""]), ["comment", slip?.comment || ""]]));
+    setScannedMonth(null);
+    if (prefill) apply(prefill);
+  }, [open, slip, prefill]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async () => {
     try {
       const body = Object.fromEntries(Object.entries(f).map(([k, v]) => [k, k === "comment" ? v : v === "" ? null : Number(v)]));
@@ -55,8 +91,10 @@ const PayslipDialog = ({ open, onOpenChange, month, slip }) => {
       <DialogContent className="glass !rounded-[20px] max-w-md w-[calc(100vw-1.5rem)] p-6 border-0" data-testid="payslip-dialog">
         <DialogHeader className="text-left">
           <DialogTitle className="text-2xl font-bold">Тлуш за {monthTitle(month).toLowerCase()}</DialogTitle>
-          <DialogDescription className="txt-2">Перепишите суммы из зарплатного листка — обязательно только брутто</DialogDescription>
+          <DialogDescription className="txt-2">Сфотографируйте листок или перепишите суммы — обязательно только брутто</DialogDescription>
         </DialogHeader>
+        <ScanButton onResult={apply} testId="payslip-dialog-scan" className="h-11 rounded-[12px] bg-soft text-[#0A84FF] text-sm font-semibold flex items-center justify-center gap-2">Сфотографировать или загрузить PDF</ScanButton>
+        {scannedMonth && <div className="text-[13px] text-[#FF9500]" data-testid="payslip-month-warning">На листке указан месяц {monthTitle(scannedMonth).toLowerCase()} — проверьте, что выбран нужный месяц.</div>}
         <div className="grid grid-cols-2 gap-3">
           {FIELDS.map(([k, l]) => (
             <div key={k} className={k === "gross" || k === "net" ? "" : ""}>
@@ -79,6 +117,11 @@ const PayslipDialog = ({ open, onOpenChange, month, slip }) => {
 export const PayslipCard = ({ month, stats, className = "" }) => {
   const { data } = usePayslips(Number(month.slice(0, 4)));
   const [open, setOpen] = useState(false);
+  const [prefill, setPrefill] = useState(null);
+  const openWith = (data) => {
+    setPrefill(data);
+    setOpen(true);
+  };
   const slip = (data || []).find((p) => p.month === month);
   const rows = slip ? comparePayslip(stats, slip) : [];
   const main = rows.find((r) => r.key === "net") || rows.find((r) => r.key === "gross");
@@ -88,14 +131,17 @@ export const PayslipCard = ({ month, stats, className = "" }) => {
     <GlassCard className={`p-6 ${className}`} data-testid="payslip-card">
       <div className="flex items-center justify-between">
         <Label>Сверка с зарплатой</Label>
-        {slip && <button onClick={() => setOpen(true)} className="text-sm font-semibold text-[#0A84FF] flex items-center gap-1" data-testid="payslip-edit-button"><Pencil size={14} /> Изменить</button>}
+        {slip && <button onClick={() => openWith(null)} className="text-sm font-semibold text-[#0A84FF] flex items-center gap-1" data-testid="payslip-edit-button"><Pencil size={14} /> Изменить</button>}
       </div>
       {!slip ? (
         <div className="py-6 flex flex-col items-center text-center">
           <div className="w-12 h-12 rounded-[14px] bg-soft grid place-items-center text-[#0A84FF] mb-3"><Receipt size={22} /></div>
           <div className="text-[17px] font-semibold">Внесите данные из тлуша</div>
-          <p className="text-[13px] txt-2 mt-1 max-w-sm">Сравню фактическую зарплату с расчётом приложения и покажу, где разница.</p>
-          <button onClick={() => setOpen(true)} className="mt-4 h-11 px-5 rounded-[12px] bg-[#0A84FF] text-white text-sm font-semibold active:opacity-70" data-testid="payslip-add-button">Внести тлуш</button>
+          <p className="text-[13px] txt-2 mt-1 max-w-sm">Сфотографируйте тлуш — цифры заполнятся сами. Сравню фактическую зарплату с расчётом.</p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <ScanButton onResult={openWith} className="h-11 px-5 rounded-[12px] bg-[#0A84FF] text-white text-sm font-semibold flex items-center gap-2 active:opacity-70">Сфотографировать</ScanButton>
+            <button onClick={() => openWith(null)} className="h-11 px-5 rounded-[12px] bg-soft text-[#0A84FF] text-sm font-semibold active:opacity-70" data-testid="payslip-add-button">Ввести вручную</button>
+          </div>
         </div>
       ) : (
         <>
@@ -121,7 +167,58 @@ export const PayslipCard = ({ month, stats, className = "" }) => {
           {slip.comment && <div className="text-[13px] txt-2 mt-2">{slip.comment}</div>}
         </>
       )}
-      <PayslipDialog open={open} onOpenChange={setOpen} month={month} slip={slip} />
+      <PayslipDialog open={open} onOpenChange={setOpen} month={month} slip={slip} prefill={prefill} />
+    </GlassCard>
+  );
+};
+
+const signed = (v) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${money2(Math.abs(v))}`;
+const diffColor = (v) => (Math.abs(v) < 1 ? "text-[#34C759]" : v > 0 ? "text-[#34C759]" : "text-[#FF3B30]");
+
+const SumTile = ({ label, t, testId }) => (
+  <div className="rounded-[14px] bg-soft p-4" data-testid={testId}>
+    <div className="text-[13px] font-semibold txt-2">{label} · {t.months} мес.</div>
+    <div className={`num text-[26px] font-bold mt-1 ${diffColor(t.diff)}`}>{Math.abs(t.diff) < 1 ? "совпадает" : signed(t.diff)}</div>
+    <div className="num text-[13px] txt-2 mt-1">расчёт {money2(t.calc)} · тлуш {money2(t.actual)}</div>
+  </div>
+);
+
+export const PayslipYearSummary = ({ year }) => {
+  const { data } = usePayslipSummary(year);
+  if (!data) return null;
+  const { totals, months } = data;
+  const main = totals.net || totals.gross;
+  return (
+    <GlassCard className="p-6" data-testid="payslip-year-summary">
+      <Label>Итоги сверки за {year}</Label>
+      {!months.length ? (
+        <p className="text-[15px] txt-2 mt-3">Пока нет внесённых тлушей. Внесите их в режиме «Месяц» — здесь появится итог недоплат и переплат за год.</p>
+      ) : (
+        <>
+          <div className={`mt-4 flex items-start gap-3 rounded-[14px] p-4 ${Math.abs(main.diff) < 1 ? "bg-[#34C759]/10" : main.diff < 0 ? "bg-[#FF3B30]/10" : "bg-[#34C759]/10"}`} data-testid="payslip-year-verdict">
+            {Math.abs(main.diff) < 1 || main.diff > 0 ? <CheckCircle2 size={20} className="text-[#34C759] shrink-0 mt-0.5" /> : <AlertTriangle size={20} className="text-[#FF3B30] shrink-0 mt-0.5" />}
+            <div className="text-[15px]">
+              {Math.abs(main.diff) < 1 ? <>За год выплаты совпадают с расчётом ({totals.net ? "нетто" : "брутто"}).</> : main.diff < 0
+                ? <>За год вам <b>недоплатили</b> примерно <b className="num">{money2(Math.abs(main.diff))}</b> ({totals.net ? "нетто" : "брутто"}). Стоит поговорить с бухгалтерией.</>
+                : <>За год выплачено на <b className="num">{money2(main.diff)}</b> больше расчёта ({totals.net ? "нетто" : "брутто"}).</>}
+              <div className="text-[13px] txt-2 mt-1">Недоплата — {data.under} мес., переплата — {data.over} мес., совпало — {data.match} мес.</div>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3 mt-3">
+            {totals.gross && <SumTile label="Брутто" t={totals.gross} testId="payslip-year-gross" />}
+            {totals.net && <SumTile label="Нетто" t={totals.net} testId="payslip-year-net" />}
+          </div>
+          <div className="mt-3">
+            {months.map((m) => (
+              <div key={m.month} className="flex items-center gap-3 py-2.5 border-t hair text-[14px]" data-testid={`payslip-year-row-${m.month}`}>
+                <span className="flex-1 font-medium">{MONTHS[Number(m.month.slice(5)) - 1]}</span>
+                {m.gross && <span className="num text-right w-32"><span className="txt-2 text-[12px]">брутто </span><span className={diffColor(m.gross.diff)}>{Math.abs(m.gross.diff) < 1 ? "✓" : signed(m.gross.diff)}</span></span>}
+                <span className="num text-right w-32">{m.net ? <><span className="txt-2 text-[12px]">нетто </span><span className={diffColor(m.net.diff)}>{Math.abs(m.net.diff) < 1 ? "✓" : signed(m.net.diff)}</span></> : <span className="txt-2">—</span>}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </GlassCard>
   );
 };

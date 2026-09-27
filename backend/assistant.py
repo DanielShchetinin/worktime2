@@ -80,7 +80,9 @@ def system_prompt(today: str):
 - Всегда используй инструменты для чтения и изменения данных, не выдумывай цифры.
 - Если запрос неоднозначен (нет дат/часов) — задай один короткий уточняющий вопрос.
 - После изменений коротко отчитайся маркированным списком, что именно настроено.
-- Отвечай по-русски, дружелюбно и кратко, используй markdown. Не используй эмодзи."""
+- Изменения НЕ применяются сразу: вызов изменяющего инструмента показывает пользователю карточку подтверждения, где он может поправить значения и нажать «Применить». Поэтому после таких вызовов напиши одну короткую фразу, что предлагаешь, и попроси проверить карточку ниже. Никогда не говори, что уже сохранил.
+- Стиль ответа: пиши как живой человек в мессенджере — тепло, просто и коротко. Никаких технических слов, ключей и названий полей (не пиши half_holiday, bonus_pct, update_settings, day_type и т.п.) — только человеческие названия («предпраздничный день», «бонус»). Не используй блоки кода, таблицы и заголовки. Короткие абзацы; для перечислений — короткий список. Жирным выделяй только важные цифры и даты. Даты пиши словами («14 июля»), деньги — «62 ₪».
+- Отвечай по-русски. Не используй эмодзи."""
 
 
 async def dispatch(uid, name, a):
@@ -137,7 +139,7 @@ async def stream_chat(uid, text, today, past):
                     system_message=system_prompt(today), initial_messages=initial)
             .with_model("anthropic", "claude-sonnet-4-6")
             .with_tools(TOOLS, tool_choice="auto"))
-    full, used, changed = "", [], False
+    full, used, proposals = "", [], []
     user_msg = UserMessage(text=text)
     try:
         for _ in range(10):
@@ -147,7 +149,8 @@ async def stream_chat(uid, text, today, past):
                     full += ev.content
                     yield {"type": "delta", "content": ev.content}
                 elif isinstance(ev, ToolCallStart):
-                    yield {"type": "tool", "name": ev.name}
+                    if ev.name not in MUTATING:
+                        yield {"type": "tool", "name": ev.name}
                 elif isinstance(ev, ToolCallReady):
                     pending.append(ev.tool_call)
                 elif isinstance(ev, StreamDone):
@@ -155,10 +158,14 @@ async def stream_chat(uid, text, today, past):
             if not pending:
                 break
             for tc in pending:
-                result = await dispatch(uid, tc.name, tc.arguments or {})
+                args = tc.arguments or {}
                 used.append(tc.name)
-                if tc.name in MUTATING and not (isinstance(result, dict) and result.get("error")):
-                    changed = True
+                if tc.name in MUTATING:
+                    proposals.append({"tool": tc.name, "args": args})
+                    result = {"status": "pending_confirmation",
+                              "note": "Изменение показано пользователю в карточке подтверждения и ещё НЕ применено. Не вызывай его повторно."}
+                else:
+                    result = await dispatch(uid, tc.name, args)
                 chat.add_tool_result(tc.id, json.dumps(result, ensure_ascii=False, default=str))
             if full and not full.endswith("\n"):
                 full += "\n\n"
@@ -167,4 +174,19 @@ async def stream_chat(uid, text, today, past):
     except Exception as ex:
         logger.exception("chat error")
         yield {"type": "error", "content": f"Ошибка ассистента: {ex}"}
-    yield {"type": "done", "changed": changed, "tools": used}
+    if proposals:
+        yield {"type": "proposal", "actions": proposals}
+    yield {"type": "done", "changed": False, "tools": used}
+
+
+async def apply_actions(uid, actions):
+    results = []
+    for a in actions:
+        tool = a.get("tool")
+        if tool not in MUTATING:
+            results.append({"tool": tool, "ok": False, "error": "Действие не разрешено"})
+            continue
+        r = await dispatch(uid, tool, a.get("args") or {})
+        err = r.get("error") if isinstance(r, dict) else None
+        results.append({"tool": tool, "ok": not err, "error": err})
+    return results
