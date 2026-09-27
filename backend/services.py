@@ -235,6 +235,63 @@ async def stop_timer(uid, time):
     return await day_info(uid, e.date, None, e)
 
 
+# ---------- payslips (actual salary) ----------
+class PayslipIn(BaseModel):
+    gross: float = Field(ge=0)
+    net: Optional[float] = None
+    hours: Optional[float] = None
+    income_tax: Optional[float] = None
+    social: Optional[float] = None
+    pension: Optional[float] = None
+    comment: str = ""
+
+
+class Payslip(BaseDocument, PayslipIn):
+    user_id: str
+    month: str
+
+    def out(self):
+        return self.model_dump(exclude={"id", "user_id"})
+
+
+def check_month(month: str):
+    import re
+    if not re.match(r"^\d{4}-(0[1-9]|1[0-2])$", month or ""):
+        raise HTTPException(status_code=400, detail=f"Неверный месяц: {month}")
+
+
+async def list_payslips(uid, year: int):
+    cur = db.payslips.find({"user_id": uid, "month": {"$regex": f"^{year}-"}}).sort("month", 1)
+    return [Payslip.from_mongo(d).out() async for d in cur]
+
+
+async def get_payslip(uid, month):
+    p = Payslip.from_mongo(await db.payslips.find_one({"user_id": uid, "month": month}))
+    return p.out() if p else None
+
+
+async def set_payslip(uid, month, data: PayslipIn):
+    check_month(month)
+    p = Payslip(user_id=uid, month=month, **data.model_dump())
+    doc = p.to_mongo()
+    await db.payslips.update_one({"user_id": uid, "month": month}, {"$set": doc}, upsert=True)
+    return p.out()
+
+
+async def delete_payslip(uid, month):
+    await db.payslips.delete_one({"user_id": uid, "month": month})
+    return {"ok": True}
+
+
+def compare_payslip(stats, p):
+    t, tax = stats["totals"], stats["tax"]
+    pairs = [("hours", "Часы", t["worked_hours"]), ("gross", "Брутто", t["gross"]),
+             ("income_tax", "Подоходный налог", tax["income_tax"]), ("social", "Битуах Леуми + здоровье", tax["social"]),
+             ("pension", "Пенсия", tax["pension"]), ("net", "Нетто", tax["net"])]
+    return [{"key": k, "label": lbl, "calc": round(c, 2), "actual": p[k], "diff": round(p[k] - c, 2)}
+            for k, lbl, c in pairs if p.get(k) is not None]
+
+
 # ---------- stats ----------
 async def get_month_stats(uid, month: str, today: Optional[str] = None):
     y, m = int(month[:4]), int(month[5:7])

@@ -76,7 +76,7 @@ def summary_pairs(stats):
     return hours, money
 
 
-def build_pdf(stats, s, user):
+def build_pdf(stats, s, user, cmp=()):
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=14 * mm, rightMargin=14 * mm,
                             topMargin=12 * mm, bottomMargin=12 * mm, title=f"Отчёт {stats['month']}")
@@ -112,7 +112,24 @@ def build_pdf(stats, s, user):
     top = Table([[kv(hours, (54, 26)), kv(money, (68, 34), ("Брутто", "Нетто (оценка)")), rate_tb]],
                 colWidths=[86 * mm, 108 * mm, 75 * mm])
     top.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
-    story += [top, Spacer(1, 8), Paragraph("Журнал дней", h2)]
+    story += [top, Spacer(1, 8)]
+    if cmp:
+        fmt = lambda r, v: fh(v) if r["key"] == "hours" else fm(v)  # noqa: E731
+        sign = lambda r: ("+" if r["diff"] > 0 else "−" if r["diff"] < 0 else "") + fmt(r, abs(r["diff"]))  # noqa: E731
+        ctb = Table([["Сверка с тлушем", "Расчёт", "Тлуш", "Разница"]] +
+                    [[r["label"], fmt(r, r["calc"]), fmt(r, r["actual"]), sign(r)] for r in cmp],
+                    colWidths=[60 * mm, 32 * mm, 32 * mm, 32 * mm])
+        cst = [("FONT", (0, 0), (-1, -1), "Sans", 9), ("FONT", (0, 0), (-1, 0), "Sans-Bold", 9),
+               ("TEXTCOLOR", (1, 0), (-1, 0), GRAY), ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+               ("LINEBELOW", (0, 0), (-1, -1), 0.4, HAIR), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]
+        for i, r in enumerate(cmp, 1):
+            if abs(r["diff"]) >= 1:
+                good = r["diff"] < 0 if r["key"] in ("income_tax", "social", "pension") else r["diff"] > 0
+                cst.append(("TEXTCOLOR", (3, i), (3, i), colors.HexColor("#34C759" if good else "#FF3B30")))
+        ctb.setStyle(TableStyle(cst))
+        ctb.hAlign = "LEFT"
+        story += [ctb, Spacer(1, 8)]
+    story += [Paragraph("Журнал дней", h2)]
 
     head = ["Дата", "День", "Категория", "Время", "Часы", "Засчит.", "Ставки", "Сумма", "Комментарий"]
     data = [head]
@@ -139,7 +156,7 @@ def build_pdf(stats, s, user):
     return buf.getvalue()
 
 
-def build_xlsx(stats, s, user):
+def build_xlsx(stats, s, user, cmp=()):
     wb = Workbook()
     bold, head_fill = Font(bold=True), PatternFill("solid", fgColor="0A84FF")
     ws = wb.active
@@ -158,6 +175,14 @@ def build_xlsx(stats, s, user):
     for k, v in sorted(stats["totals"]["pay_by_rate"].items(), key=lambda i: float(i[0])):
         ws.append([f"{k}%", round(stats["totals"]["breakdown"].get(k, 0), 2), round(v, 2)])
     ws.column_dimensions["A"].width = 38
+    if cmp:
+        ws.append([])
+        ws.append(["Сверка с тлушем", "Расчёт", "Тлуш", "Разница"])
+        for c in ws[ws.max_row]:
+            c.font = bold
+        for r in cmp:
+            ws.append([r["label"], r["calc"], r["actual"], r["diff"]])
+        ws.column_dimensions["D"].width = 14
     ws.column_dimensions["B"].width = 18
     ws.column_dimensions["C"].width = 14
 

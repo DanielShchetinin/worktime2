@@ -74,18 +74,31 @@ const Sidebar = () => {
 
 const BottomBar = () => {
   const { pathname } = useLocation();
+  const tabs = NAV.filter((n) => n.id !== "chat");
+  const chat = NAV.find((n) => n.id === "chat");
+  const chatActive = isActive(pathname, chat.to);
+  const tap = () => navigator.vibrate?.(8);
   return (
-    <nav className="glass-strong md:hidden fixed bottom-0 inset-x-0 z-50 flex items-start justify-around border-t hair pt-1" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 6px)" }}>
-      {NAV.map((n) => {
-        const active = isActive(pathname, n.to);
-        return (
-          <NavLink key={n.to} to={n.to} data-testid={`tab-${n.id}`} className="flex-1 h-[48px] flex flex-col items-center justify-center gap-0.5 active:opacity-60">
-            <n.icon size={22} className={active ? "text-[#0A84FF]" : "txt-2"} strokeWidth={active ? 2.3 : 1.9} />
-            <span className={`text-[10px] font-medium ${active ? "text-[#0A84FF]" : "txt-2"}`}>{n.label}</span>
-          </NavLink>
-        );
-      })}
-    </nav>
+    <div className="md:hidden fixed inset-x-0 bottom-0 z-50 px-3 flex items-end gap-2.5 pointer-events-none" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 12px)" }}>
+      <nav className="liquid pointer-events-auto flex-1 h-[64px] rounded-full flex items-center p-1.5" data-testid="mobile-tabbar">
+        {tabs.map((n) => {
+          const active = isActive(pathname, n.to);
+          return (
+            <NavLink key={n.to} to={n.to} onClick={tap} data-testid={`tab-${n.id}`} className="relative flex-1 h-full flex flex-col items-center justify-center gap-[3px] active:scale-90 transition-transform duration-150">
+              {active && <motion.span layoutId="tab-lens" className="liquid-lens absolute inset-0 rounded-full" transition={{ type: "spring", stiffness: 500, damping: 38 }} />}
+              <motion.span animate={active ? { y: [0, -3, 0], scale: [1, 1.12, 1] } : { y: 0, scale: 1 }} transition={{ duration: 0.35 }} className="relative">
+                <n.icon size={21} className={active ? "text-[#0A84FF]" : "text-foreground/70"} strokeWidth={active ? 2.4 : 2} />
+              </motion.span>
+              <span className={`relative text-[10px] font-semibold leading-none ${active ? "text-[#0A84FF]" : "text-foreground/70"}`}>{n.label}</span>
+            </NavLink>
+          );
+        })}
+      </nav>
+      <NavLink to={chat.to} onClick={tap} data-testid="tab-chat" aria-label={chat.label}
+        className={`pointer-events-auto w-[64px] h-[64px] shrink-0 rounded-full grid place-items-center active:scale-90 transition-transform duration-150 ${chatActive ? "bg-[#0A84FF] text-white shadow-[0_8px_24px_-6px_rgba(10,132,255,0.55)]" : "liquid text-[#0A84FF]"}`}>
+        <Sparkles size={24} strokeWidth={2.2} />
+      </NavLink>
+    </div>
   );
 };
 
@@ -98,7 +111,7 @@ export default function AppShell() {
         <Logo />
         <ThemeToggle />
       </header>
-      <main className="relative z-10 md:pl-[264px] px-4 sm:px-6 lg:pr-8 pt-5 md:pt-8 pb-24 md:pb-10">
+      <main className="relative z-10 md:pl-[264px] px-4 sm:px-6 lg:pr-8 pt-5 md:pt-8 pb-32 md:pb-10">
         <div key={pathname} className="max-w-[1320px] mx-auto fade-up">
           <Outlet />
         </div>

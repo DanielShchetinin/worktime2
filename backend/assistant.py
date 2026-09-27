@@ -52,10 +52,15 @@ TOOLS = [
         "comment": {"type": "string"}}, ["start", "end", "day_type"]),
     fn("delete_entry", "Удалить запись дня.", {"date": {"type": "string"}}, ["date"]),
     fn("get_month_stats", "Статистика месяца: часы, сверхурочные, брутто, налоги, нетто.", {"month": {"type": "string", "description": "YYYY-MM"}}, ["month"]),
+    fn("set_payslip", "Сохранить фактические данные из зарплатного листка (тлуш) за месяц для сверки с расчётом.", {
+        "month": {"type": "string", "description": "YYYY-MM"}, "gross": {"type": "number"}, "net": {"type": "number"},
+        "hours": {"type": "number"}, "income_tax": {"type": "number"}, "social": {"type": "number", "description": "Битуах Леуми + мас бриют"},
+        "pension": {"type": "number"}, "comment": {"type": "string"}}, ["month", "gross"]),
+    fn("compare_payslip", "Сравнить расчёт приложения с фактическим тлушем за месяц.", {"month": {"type": "string"}}, ["month"]),
 ]
 
 MUTATING = {"update_settings", "upsert_day_type", "delete_day_type", "set_holiday", "remove_holiday",
-            "upsert_entry", "bulk_set_days", "delete_entry"}
+            "upsert_entry", "bulk_set_days", "delete_entry", "set_payslip"}
 
 
 def system_prompt(today: str):
@@ -107,6 +112,13 @@ async def dispatch(uid, name, a):
             return await svc.bulk_set_days(uid, a["start"], a["end"], a["day_type"], a.get("only_workdays", True), a.get("comment", ""))
         if name == "delete_entry":
             return await svc.delete_entry(uid, a["date"])
+        if name == "set_payslip":
+            return await svc.set_payslip(uid, a["month"], svc.PayslipIn(**{k: v for k, v in a.items() if k != "month"}))
+        if name == "compare_payslip":
+            slip = await svc.get_payslip(uid, a["month"])
+            if not slip:
+                return {"error": "Нет данных тлуша за этот месяц"}
+            return svc.compare_payslip(await svc.get_month_stats(uid, a["month"]), slip)
         if name == "get_month_stats":
             r = await svc.get_month_stats(uid, a["month"])
             return {"totals": r["totals"], "tax": r["tax"], "goals": r["goals"]}

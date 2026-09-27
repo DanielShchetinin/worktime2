@@ -283,15 +283,33 @@ async def transcribe(file: UploadFile = File(...), user: User = Depends(current_
     return {"text": (r.text or "").strip()}
 
 
+# ---------- payslips ----------
+@api.get("/payslips")
+async def payslips(year: int, user: User = Depends(current_user)):
+    return await svc.list_payslips(user.id, year)
+
+
+@api.put("/payslips/{month}")
+async def put_payslip(month: str, body: svc.PayslipIn, user: User = Depends(current_user)):
+    return await svc.set_payslip(user.id, month, body)
+
+
+@api.delete("/payslips/{month}")
+async def del_payslip(month: str, user: User = Depends(current_user)):
+    return await svc.delete_payslip(user.id, month)
+
+
 # ---------- reports ----------
 @api.get("/reports/month")
 async def report_month(month: str, format: str = "pdf", today: Optional[str] = None, user: User = Depends(current_user)):
     stats = await svc.get_month_stats(user.id, month, today)
     s = await svc.get_settings(user.id)
+    slip = await svc.get_payslip(user.id, month)
+    cmp = svc.compare_payslip(stats, slip) if slip else []
     if format == "xlsx":
-        content, media = build_xlsx(stats, s, user), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        content, media = build_xlsx(stats, s, user, cmp), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     else:
-        content, media, format = build_pdf(stats, s, user), "application/pdf", "pdf"
+        content, media, format = build_pdf(stats, s, user, cmp), "application/pdf", "pdf"
     return Response(content, media_type=media,
                     headers={"Content-Disposition": f'attachment; filename="smena-{month}.{format}"'})
 
@@ -369,6 +387,7 @@ async def startup():
     await db.holidays.create_index([("user_id", 1), ("date", 1)], unique=True)
     await db.chat_messages.drop()
     await db.push_subs.create_index("endpoint", unique=True)
+    await db.payslips.create_index([("user_id", 1), ("month", 1)], unique=True)
     await db.reminder_log.create_index([("user_id", 1), ("date", 1), ("kind", 1)], unique=True)
     await db.cron_runs.create_index("at", expireAfterSeconds=86400 * 3)
     await db.login_attempts.create_index("identifier")
