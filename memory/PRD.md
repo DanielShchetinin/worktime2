@@ -25,9 +25,9 @@
 - Статистика месяц/год: KPI, часы по ставкам, доход по ставкам, брутто→нетто (налог, Битуах Леуми, пенсия), список месяцев с отклонением от нормы
 - ИИ-ассистент (Claude) меняет настройки/праздники/записи
 - iOS-style redesign (system font, flat cards, translucent bars)
+- Iteration 3: monthly report PDF + Excel; PWA (manifest, icons, service worker, iPhone home screen); shift reminders (web push VAPID + cron */15 `/api/cron/reminders` + in-app banners); Israeli sick law (1st day 0%, 2–3 50%, 4+ 100%, toggle); voice input to assistant (whisper-1); chat sessions are no longer stored on server (sessionStorage only, «Новый чат»)
 
 ## Backlog
-- P1: экспорт PDF/Excel отчёта за месяц
 - P1: несколько работодателей/проектов
-- P2: PWA (установка на телефон), напоминания о начале/конце дня
-- P2: больничный по закону Израиля (1-й день 0%, 2-3 — 50%)
+- P2: голосовые ответы ассистента (TTS)
+- P2: отправка отчёта на email бухгалтеру

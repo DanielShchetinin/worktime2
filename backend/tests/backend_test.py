@@ -214,16 +214,189 @@ class TestStats:
         assert "months" in d or "totals" in d
 
 
-# --------- chat ---------
+# --------- chat (iteration 2: sessions no longer stored on server) ---------
 class TestChat:
-    def test_history_empty_for_new(self, auth_headers):
+    def test_history_endpoint_removed(self, auth_headers):
         r = requests.get(f"{API}/chat/history", headers=auth_headers)
-        assert r.status_code == 200
-        assert isinstance(r.json(), list)
+        assert r.status_code in (404, 405), f"chat/history should be removed, got {r.status_code}"
 
-    def test_clear(self, auth_headers):
-        r = requests.delete(f"{API}/chat/history", headers=auth_headers)
+    def test_transcribe_too_small(self, auth_headers):
+        files = {"file": ("tiny.webm", b"12345", "audio/webm")}
+        r = requests.post(f"{API}/chat/transcribe", headers=auth_headers, files=files)
+        assert r.status_code == 400, f"too small file should be 400, got {r.status_code} {r.text}"
+
+    def test_transcribe_no_auth(self):
+        files = {"file": ("tiny.webm", b"x" * 600, "audio/webm")}
+        r = requests.post(f"{API}/chat/transcribe", files=files)
+        assert r.status_code == 401
+
+
+# --------- iteration 2: reports ---------
+class TestReports:
+    def test_report_pdf(self, demo_headers):
+        r = requests.get(f"{API}/reports/month?month=2026-09&format=pdf", headers=demo_headers)
+        assert r.status_code == 200, r.text
+        assert r.headers.get("content-type", "").startswith("application/pdf")
+        assert "attachment" in r.headers.get("content-disposition", "").lower()
+        assert r.content[:4] == b"%PDF", "not a PDF"
+
+    def test_report_xlsx(self, demo_headers):
+        r = requests.get(f"{API}/reports/month?month=2026-09&format=xlsx", headers=demo_headers)
+        assert r.status_code == 200, r.text
+        ct = r.headers.get("content-type", "")
+        assert "spreadsheetml" in ct or "officedocument" in ct, ct
+        assert "attachment" in r.headers.get("content-disposition", "").lower()
+        # xlsx = zip; starts with PK
+        assert r.content[:2] == b"PK"
+
+    def test_report_no_auth(self):
+        r = requests.get(f"{API}/reports/month?month=2026-09&format=pdf")
+        assert r.status_code == 401
+
+
+# --------- iteration 2: sick law (Israeli 0/50/50/100) ---------
+class TestSickLaw:
+    def test_sick_streak_pay_percent(self, auth_headers):
+        # ensure sick_law enabled + 5-day work-week defaults
+        requests.put(f"{API}/settings", headers=auth_headers,
+                     json={"sick_law_il": True, "work_days": [0, 1, 2, 3, 4], "hourly_rate": 50.0})
+        # Sun-Wed 2026-06-07..10 are Sun/Mon/Tue/Wed in 2026 (Sun=0)
+        dates = ["2026-06-07", "2026-06-08", "2026-06-09", "2026-06-10"]
+        expected_pct = [0, 50, 50, 100]
+        expected_sick_day = [1, 2, 3, 4]
+        for d in dates:
+            r = requests.put(f"{API}/entries/{d}", headers=auth_headers,
+                             json={"day_type": "sick", "comment": "TEST_sick"})
+            assert r.status_code == 200, r.text
+        # Fetch stats and validate calc.pay_percent + calc.sick_day
+        r = requests.get(f"{API}/stats/month?month=2026-06", headers=auth_headers)
         assert r.status_code == 200
+        days = {d["date"]: d for d in r.json()["days"]}
+        for d, pct, n in zip(dates, expected_pct, expected_sick_day):
+            c = days[d]["calc"]
+            assert c is not None, d
+            assert c["day_type"] == "sick"
+            assert c["sick_day"] == n, f"{d}: sick_day expected {n} got {c['sick_day']}"
+            assert c["pay_percent"] == pct, f"{d}: pay_percent expected {pct} got {c['pay_percent']}"
+
+    def test_sick_law_off_pays_100(self, auth_headers):
+        requests.put(f"{API}/settings", headers=auth_headers, json={"sick_law_il": False})
+        # existing sick entries from previous test now should have pay_percent 100
+        r = requests.get(f"{API}/stats/month?month=2026-06", headers=auth_headers)
+        days = {d["date"]: d for d in r.json()["days"]}
+        c = days["2026-06-07"]["calc"]
+        assert c["pay_percent"] == 100, c
+        # restore
+        requests.put(f"{API}/settings", headers=auth_headers, json={"sick_law_il": True})
+        # cleanup
+        for d in ["2026-06-07", "2026-06-08", "2026-06-09", "2026-06-10"]:
+            requests.delete(f"{API}/entries/{d}", headers=auth_headers)
+
+
+# --------- iteration 2: settings reminders / timezone ---------
+class TestReminderSettings:
+    def test_persist_reminders(self, auth_headers):
+        payload = {"reminders_enabled": True, "reminder_start_time": "09:15",
+                   "reminder_end_time": "18:45", "timezone": "Europe/Moscow"}
+        r = requests.put(f"{API}/settings", headers=auth_headers, json=payload)
+        assert r.status_code == 200
+        r2 = requests.get(f"{API}/settings", headers=auth_headers)
+        d = r2.json()
+        assert d["reminders_enabled"] is True
+        assert d["reminder_start_time"] == "09:15"
+        assert d["reminder_end_time"] == "18:45"
+        assert d["timezone"] == "Europe/Moscow"
+        # restore
+        requests.put(f"{API}/settings", headers=auth_headers,
+                     json={"reminders_enabled": False, "reminder_start_time": "08:30",
+                           "reminder_end_time": "18:00", "timezone": "Asia/Jerusalem"})
+
+
+# --------- iteration 2: push API ---------
+class TestPush:
+    def test_vapid_key(self, auth_headers):
+        r = requests.get(f"{API}/push/key", headers=auth_headers)
+        assert r.status_code == 200
+        assert isinstance(r.json().get("key"), str) and len(r.json()["key"]) > 40
+
+    def test_subscribe_unsubscribe(self, auth_headers):
+        fake_endpoint = f"https://fake.push.example/{uuid.uuid4().hex}"
+        sub = {"endpoint": fake_endpoint,
+               "keys": {"p256dh": "BFAKE_p256dh_key_dummy_value_for_test_00000",
+                        "auth": "FAKE_auth_dummy"}}
+        r = requests.post(f"{API}/push/subscribe", headers=auth_headers, json=sub)
+        assert r.status_code == 200, r.text
+        assert r.json().get("ok") is True
+        # test send (may prune the fake endpoint silently)
+        r2 = requests.post(f"{API}/push/test", headers=auth_headers)
+        assert r2.status_code == 200
+        assert "sent" in r2.json()
+        # unsubscribe
+        r3 = requests.post(f"{API}/push/unsubscribe", headers=auth_headers, json={"endpoint": fake_endpoint})
+        assert r3.status_code == 200
+
+
+# --------- iteration 2: cron reminders webhook ---------
+class TestCron:
+    def test_cron_no_auth(self):
+        r = requests.post(f"{API}/cron/reminders")
+        assert r.status_code == 401
+
+    def test_cron_wrong_secret(self):
+        r = requests.post(f"{API}/cron/reminders", headers={"Authorization": "Bearer wrong"})
+        assert r.status_code == 401
+
+    def test_cron_authed_and_idempotent(self):
+        secret = os.environ.get("WEBHOOK_CRON_SECRET") or _read_secret_from_env()
+        assert secret, "WEBHOOK_CRON_SECRET missing"
+        run_id = f"test-{uuid.uuid4().hex}"
+        h = {"Authorization": f"Bearer {secret}", "X-Webhook-Id": run_id}
+        r = requests.post(f"{API}/cron/reminders", headers=h)
+        assert r.status_code == 200, r.text
+        assert r.json().get("ok") is True
+        assert r.json().get("duplicate") in (None, False)
+        # replay same run_id
+        r2 = requests.post(f"{API}/cron/reminders", headers=h)
+        assert r2.status_code == 200
+        assert r2.json().get("duplicate") is True
+
+
+def _read_secret_from_env():
+    try:
+        with open("/app/backend/.env") as f:
+            for line in f:
+                if line.startswith("WEBHOOK_CRON_SECRET"):
+                    v = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    return v
+    except FileNotFoundError:
+        pass
+    return None
+
+
+# --------- iteration 2: PWA static assets ---------
+class TestPWA:
+    def test_manifest(self):
+        r = requests.get(f"{BASE}/manifest.json")
+        assert r.status_code == 200
+        d = r.json()
+        assert "icons" in d and len(d["icons"]) >= 2
+        assert d.get("display") == "standalone"
+
+    def test_sw(self):
+        r = requests.get(f"{BASE}/sw.js")
+        assert r.status_code == 200
+        assert "push" in r.text.lower()
+
+    def test_icons_exist(self):
+        for path in ("/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"):
+            r = requests.get(f"{BASE}{path}")
+            assert r.status_code == 200, path
+
+    def test_index_meta(self):
+        r = requests.get(f"{BASE}/")
+        assert r.status_code == 200
+        assert "apple-touch-icon" in r.text
+        assert "manifest.json" in r.text
 
 
 # --------- demo seeded data smoke ---------

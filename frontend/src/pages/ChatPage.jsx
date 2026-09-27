@@ -178,7 +178,7 @@ export default function ChatPage() {
       <GlassCard className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5" data-testid="chat-messages">
           {msgs.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-center px-2">
+            <div className="min-h-full flex flex-col items-center justify-center text-center px-2 py-2">
               <div className="w-14 h-14 rounded-[16px] grid place-items-center bg-[#0A84FF] text-white mb-5"><Wrench size={28} /></div>
               <div className="font-display text-2xl font-semibold">Настрою всё за вас</div>
               <p className="txt-2 text-sm mt-2 max-w-md">Расскажите текстом или голосом, как у вас на работе: праздники, короткие дни, ставки 125/150/200%, отпуска, бонусы. Я сам внесу настройки и записи. Переписка не сохраняется.</p>
